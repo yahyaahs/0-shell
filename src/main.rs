@@ -1,21 +1,18 @@
 use std::io;
 use std::io::Write;
 
+use parse::check_command;
+
+mod parse;
+
 fn main() {
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-
-        let command = input.trim();
-        
-        print!("{}\n", command);
-
-
-        if command == "exit" {
+        let command = check_command();
+        if command == "exit"  {
             break;
         }
+        println!("$ {}", command);
     }
 }
