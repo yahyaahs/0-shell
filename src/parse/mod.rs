@@ -5,7 +5,7 @@ pub fn check_command() -> String {
     for line in io::stdin().lines() {
         let line = line.unwrap();
         if line.trim() == "exit" {
-            return "Exit".to_string();
+            return "exit".to_string();
         }
         if line.trim().chars().last() == Some('\\'){
             command.push_str(&line.trim()[..line.len()-1]);
