@@ -1,9 +1,11 @@
 use std::io;
 use std::io::Write;
 
-use parse::check_command;
+use check::check_command;
+use tokenize::tokens;
 
-mod parse;
+mod check;
+mod tokenize;
 
 fn main() {
     loop {
@@ -13,6 +15,7 @@ fn main() {
         if command == "exit"  {
             break;
         }
-        println!("$ {}", command);
+        let tokens = tokens(&command);
+        println!("$ {:?}", tokens);
     }
 }
