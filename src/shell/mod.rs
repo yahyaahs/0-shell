@@ -5,6 +5,7 @@ pub mod exec;
 pub mod parse;
 pub mod shell;
 
+#[allow(dead_code)] //to remove it later when all field is used
 pub struct Shell {
     pub pid: u32,                     // Shell's process ID
     pub cwd: PathBuf,                 // Current working directory

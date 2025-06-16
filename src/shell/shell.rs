@@ -35,7 +35,7 @@ impl Shell {
             let to_exec = parse_command(&input);
             execute_command(&self, &to_exec);
 
-            print!("{} {:?}\n", to_exec.exec, to_exec.args);
+            // print!("{} {:?}\n", to_exec.exec, to_exec.args);
         }
     }
 }
