@@ -1,21 +1,7 @@
-use std::io;
-use std::io::Write;
-
-use check::check_command;
-use tokenize::tokens;
-
-mod check;
-mod tokenize;
+mod shell;
+use shell::Shell;
 
 fn main() {
-    loop {
-        print!("$ ");
-        io::stdout().flush().unwrap();
-        let command = check_command();
-        if command == "exit"  {
-            break;
-        }
-        let tokens = tokens(&command);
-        println!("$ {:?}", tokens);
-    }
+    let new_shell = Shell::new();
+    new_shell.run();
 }
