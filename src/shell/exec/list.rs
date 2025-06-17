@@ -1,5 +1,4 @@
 pub use std::fs;
-use std::fs::Metadata;
 
 pub fn ls(args: &Vec<String>){
     let paths =fs::read_dir(".").unwrap();
@@ -9,6 +8,7 @@ pub fn ls(args: &Vec<String>){
             match name.metadata(){
                 Ok(meta)=> if meta.is_dir(){
                     println!("directory {:?}", name.path());
+                    println!("{:#?}", name.metadata().unwrap().permissions());
                 }else{
                     println!("{:?}", name.file_name())
                 },
