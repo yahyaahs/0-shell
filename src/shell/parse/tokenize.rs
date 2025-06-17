@@ -1,55 +1,123 @@
+use crate::shell::State;
+
 use super::*;
 
-pub fn parse_command(input: &str) -> Cmd {
-    let mut exec = String::new();
-    let mut args: Vec<String> = Vec::new();
-    let mut i = 0;
-    for word in input.split(" ") {
-        if i == 0 {
-            exec = word.trim().to_string();
-        } else {
-            args.push(word.trim().to_string());
-        }
-        i += 1;
+pub fn scan_command(input: &str) -> State {
+    if input.ends_with("\\") && !input.ends_with("\\\\") {
+        return State::BackNewLine;
     }
-    Cmd { exec, args }
+
+    let mut in_quote = None; // None, Some('"'), or Some('\'')
+    let mut escaped = false;
+
+    for c in input.chars() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        match c {
+            '\\' => {
+                escaped = true;
+            }
+            '"' | '\'' => match in_quote {
+                Some(q) if q == c => in_quote = None,
+                None => in_quote = Some(c),
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    if let Some(q) = in_quote {
+        if q == '\"' {
+            return State::Quote("dquote".to_string());
+        }else {
+            return State::Quote("quote".to_string());
+        }
+    }
+
+    State::Exec
 }
 
-// pub fn tokens(command: &String) -> Vec<Token> {
-//     let mut tokens = Vec::new();
-//     let mut current_token = String::new();
-//     let mut in_quotes = false;
+pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
+    let exec = match input.split_whitespace().nth(0) {
+        Some(exe) => exe.to_string(),
+        None => return Err("".to_owned()),
+    };
 
-//     for c in command.chars() {
-//         if c == '"' {
-//             in_quotes = !in_quotes;
-//         } else if c.is_whitespace() && !in_quotes {
-//             if !current_token.is_empty() {
-//                 tokens.push(current_token.clone());
-//                 current_token.clear();
-//             }
-//         } else {
-//             current_token.push(c);
-//         }
-//     }
+    let input = input.trim_start_matches(&exec).trim();
 
-//     if !current_token.is_empty() {
-//         tokens.push(current_token);
-//     }
-//     let parsed_tokens = token_parsing(&tokens);
-//     parsed_tokens
-// }
+    Ok((
+        State::Exec,
+        Cmd {
+            exec,
+            args: tokenize(&input),
+        },
+    ))
+}
 
-// pub fn token_parsing(tokens: &Vec<String>) -> Vec<Token> {
-//     let mut lexed_tokens = Vec::new();
-//     for (i, token) in tokens.iter().enumerate() {
-//         if token.starts_with('-') && i == 0 {
-//             lexed_tokens.push(Token::Invalid(token.clone()));
-//         } else if token.starts_with('-') {
-//             lexed_tokens.push(Token::Arg(token.clone()));
-//         } else {
-//             lexed_tokens.push(Token::Command(token.clone()));
-//         }
-//     }
-//     return lexed_tokens;
-// }
+fn tokenize(input: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut chars = input.chars().peekable();
+
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            '\\' => {
+                chars.next(); // consume '\'
+                if let Some(&escaped_char) = chars.peek() {
+                    current.push(escaped_char);
+                    chars.next(); // consume escaped char
+                }
+            }
+            '\'' => {
+                chars.next(); // consume quote
+                if !in_double_quote {
+                    in_single_quote = !in_single_quote;
+                } else {
+                    current.push(ch);
+                }
+            }
+            '"' => {
+                chars.next(); // consume quote
+                if !in_single_quote {
+                    in_double_quote = !in_double_quote;
+                } else {
+                    current.push(ch);
+                }
+            }
+            ' ' | '\t' => {
+                if in_single_quote || in_double_quote {
+                    current.push(ch);
+                    chars.next();
+                } else {
+                    if !current.is_empty() {
+                        tokens.push(current.clone());
+                        current.clear();
+                    }
+                    while let Some(&space) = chars.peek() {
+                        if space == ' ' || space == '\t' {
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            _ => {
+                current.push(ch);
+                chars.next();
+            }
+        }
+    }
+
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+
+    tokens
+}

@@ -4,9 +4,9 @@ pub use builtins::*;
 
 use crate::shell::parse::Cmd;
 
-use super::Shell;
+use super::{Shell, State};
 
-pub fn execute_command(shell: &Shell, command: &Cmd) {
+pub fn execute_command(shell: &mut Shell, command: &Cmd) {
     match shell.builtins.get(&command.exec) {
         Some(func) => func(&command.args),
         None => match find_non_builtins(&command.exec) {
@@ -27,4 +27,6 @@ pub fn execute_command(shell: &Shell, command: &Cmd) {
             None => println!("{}: command not found", command.exec.trim()),
         },
     };
+
+    shell.state = State::Ready;
 }
