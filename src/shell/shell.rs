@@ -25,12 +25,16 @@ impl Shell {
     }
 
     pub fn run(mut self) {
+        let stdin = stdin();
+        let mut input = String::new();
+
         loop {
             match &self.state {
                 State::Exec => continue,
                 State::Ready => {
                     print!("$ ");
                     stdout().flush().unwrap();
+                    input = String::new();
                 }
                 State::Quote(typ) => {
                     print!("{}> ", typ);
@@ -44,23 +48,31 @@ impl Shell {
                 }
             };
 
-            let stdin = stdin();
-            let mut input = String::new();
+            if input.len() > 0 {
+                let mut temp_buffer = String::new();
+                stdin.read_line(&mut temp_buffer).unwrap();
+                input = format!("{}{}", input, temp_buffer);
+            } else {
+                stdin.read_line(&mut input).unwrap();
+            }
 
-            stdin.read_line(&mut input).unwrap();
-
-            match parse_command(&input) {
-                Ok((state, cmd)) => {
-                    println!("to exec: [{}] [{:?}]", cmd.exec, cmd.args);
-                    match state {
-                        State::Exec => {
-                            self.state = State::Exec;
-                            execute_command(&mut self, &cmd);
+            let input = input.trim();
+            let state = scan_command(&input.trim());
+            match state {
+                State::Exec => match parse_command(&input) {
+                    Ok((state, cmd)) => {
+                        println!("to exec: [{}] [{:?}]", cmd.exec, cmd.args);
+                        match state {
+                            State::Exec => {
+                                self.state = State::Exec;
+                                execute_command(&mut self, &cmd);
+                            }
+                            _ => self.state = state,
                         }
-                        _ => self.state = state,
                     }
-                }
-                Err(err) => print!("{err}"),
+                    Err(err) => print!("{err}"),
+                },
+                _ => self.state = state,
             };
         }
     }

@@ -2,6 +2,44 @@ use crate::shell::State;
 
 use super::*;
 
+pub fn scan_command(input: &str) -> State {
+    if input.ends_with("\\") && !input.ends_with("\\\\") {
+        return State::BackNewLine;
+    }
+
+    let mut in_quote = None; // None, Some('"'), or Some('\'')
+    let mut escaped = false;
+
+    for c in input.chars() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        match c {
+            '\\' => {
+                escaped = true;
+            }
+            '"' | '\'' => match in_quote {
+                Some(q) if q == c => in_quote = None,
+                None => in_quote = Some(c),
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    if let Some(q) = in_quote {
+        if q == '\"' {
+            return State::Quote("dquote".to_string());
+        }else {
+            return State::Quote("quote".to_string());
+        }
+    }
+
+    State::Exec
+}
+
 pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
     let exec = match input.split_whitespace().nth(0) {
         Some(exe) => exe.to_string(),
@@ -10,7 +48,6 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
 
     let input = input.trim_start_matches(&exec).trim();
 
-    // let final_parse:Result<> = ;
     Ok((
         State::Exec,
         Cmd {
