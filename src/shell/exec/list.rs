@@ -1,6 +1,5 @@
 pub use std::fs;
 use std::fs::Metadata;
-pub fn 
 
 pub fn ls(args: &Vec<String>){
     let paths =fs::read_dir(".").unwrap();
