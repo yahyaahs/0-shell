@@ -1,4 +1,5 @@
 pub mod builtins;
+pub mod list;
 pub use builtins::*;
 
 use crate::shell::parse::Cmd;

@@ -1,9 +1,11 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, fs};
+use super::list;
 
 pub fn get_builtins() -> HashMap<String, fn(&Vec<String>)> {
     HashMap::from([
         ("exit".to_string(), exit as fn(&Vec<String>)),
         ("echo".to_string(), echo as fn(&Vec<String>)),
+        ("ls".to_string(), list::ls as fn(&Vec<String>)),
     ])
 }
 
