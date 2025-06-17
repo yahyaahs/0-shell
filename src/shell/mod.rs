@@ -13,6 +13,7 @@ pub struct Shell {
     pub history: Vec<String>,         // Command history
     pub last_status: i32,             // Exit status of the last command
 
+    pub prompt: String,
     pub builtins: HashMap<String, fn(&Vec<String>)>, // store all built in cmd
     pub state: State,
 }
