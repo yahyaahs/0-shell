@@ -14,4 +14,12 @@ pub struct Shell {
     pub last_status: i32,             // Exit status of the last command
 
     pub builtins: HashMap<String, fn(&Vec<String>)>, // store all built in cmd
+    pub state: State,
+}
+
+pub enum State {
+    Exec,
+    Ready,
+    Quote(String),
+    BackNewLine,
 }
