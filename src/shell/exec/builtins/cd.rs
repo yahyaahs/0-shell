@@ -1,28 +1,28 @@
-use crate::shell::Shell;
+use crate::shell::{parse::Cmd, Shell};
 use std::{env, path::PathBuf};
 
-pub fn cd(shell: &mut Shell, args: &Vec<String>) {
-    if args.len() == 0 {
+pub fn cd(shell: &mut Shell, cmd: &Cmd) {
+    if cmd.args.len() == 0 {
         let home = env::home_dir();
         match home {
             Some(path) => shell.cwd = path,
             None => println!("cd: no such file or directory: home"),
         }
-    } else if args.len() == 1 {
+    } else if cmd.args.len() == 1 {
         let home_dir = match env::home_dir() {
-            Some(rv_path) => args[0].replace("~", rv_path.to_str().unwrap()),
+            Some(rv_path) => cmd.args[0].replace("~", rv_path.to_str().unwrap()),
             None => "~".to_string(),
         };
-        let new_path = if args[0].starts_with('~') {
+        let new_path = if cmd.args[0].starts_with('~') {
             match env::home_dir() {
-                Some(rv_path) => args[0].replace("~", rv_path.to_str().unwrap()),
+                Some(rv_path) => cmd.args[0].replace("~", rv_path.to_str().unwrap()),
                 None => {
-                    println!("cd: no such file or directory: {}", args[0]);
+                    println!("cd: no such file or directory: {}", cmd.args[0]);
                     return;
                 }
             }
         } else {
-            args[0].clone()
+            cmd.args[0].clone()
         };
 
         if new_path.starts_with('/') {
@@ -46,7 +46,7 @@ pub fn cd(shell: &mut Shell, args: &Vec<String>) {
             };
         }
     } else {
-        println!("cd: args not suported: {}", args.join(" "));
+        println!("cd: args not suported: {}", cmd.args.join(" "));
     }
 
     shell.update_prompt();

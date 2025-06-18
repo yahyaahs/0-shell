@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::shell::parse::Cmd;
+
 pub mod exec;
 pub mod parse;
 pub mod shell;
@@ -14,7 +16,7 @@ pub struct Shell {
     pub last_status: i32,             // Exit status of the last command
 
     pub prompt: String,
-    pub builtins: HashMap<String, fn(&mut Shell, &Vec<String>)>, // store all built in cmd
+    pub builtins: HashMap<String, fn(&mut Shell, &Cmd)>, // store all built in cmd
     pub state: State,
 }
 

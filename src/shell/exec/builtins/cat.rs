@@ -1,8 +1,8 @@
-use crate::shell::Shell;
+use crate::shell::{Shell, parse::Cmd};
 use std::{fs, io};
 
-pub fn cat(_shell: &mut Shell, args: &Vec<String>) {
-    if args.len() == 0 {
+pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
+    if cmd.args.len() == 0 {
         let stdin = io::stdin();
         loop {
             let mut input = String::new();
@@ -10,8 +10,8 @@ pub fn cat(_shell: &mut Shell, args: &Vec<String>) {
             print!("{}", input);
         }
     } else {
-        for file in args {
-            let content = fs::read_to_string(file);
+        for file in cmd.args.clone() {
+            let content = fs::read_to_string(file.clone());
             match content {
                 Ok(data) => print!("{}", data),
                 Err(_) => println!("cat: {}: No such file or directory", file),

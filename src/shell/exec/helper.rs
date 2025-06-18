@@ -1,3 +1,4 @@
+use crate::shell::parse::Cmd;
 use crate::shell::Shell;
 
 use std::{collections::HashMap, env};
@@ -37,14 +38,14 @@ pub fn check_type(name: &DirEntry) -> Types {
     }
 }
 
-pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Vec<String>)> {
+pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
     HashMap::from([
-        ("exit".to_string(), exit as fn(&mut Shell, &Vec<String>)),
-        ("echo".to_string(), echo as fn(&mut Shell, &Vec<String>)),
-        ("pwd".to_string(), pwd as fn(&mut Shell, &Vec<String>)),
-        ("ls".to_string(), list::ls as fn(&mut Shell, &Vec<String>)),
-        ("cd".to_string(), cd::cd as fn(&mut Shell, &Vec<String>)),
-        ("cat".to_string(), cat::cat as fn(&mut Shell, &Vec<String>)),
+        ("exit".to_string(), exit as fn(&mut Shell, &Cmd)),
+        ("echo".to_string(), echo as fn(&mut Shell, &Cmd)),
+        ("pwd".to_string(), pwd as fn(&mut Shell, &Cmd)),
+        // ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)), // chang ls signature
+        ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
+        ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
     ])
 }
 
