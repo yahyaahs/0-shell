@@ -69,7 +69,14 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
         }
     }
 
-    Ok((State::Exec, Cmd { exec, args }))
+    Ok((
+        State::Exec,
+        Cmd {
+            exec,
+            flags: args,
+            args: Vec::new(),
+        },
+    ))
 }
 
 fn tokenize(input: &str) -> Vec<String> {

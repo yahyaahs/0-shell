@@ -1,5 +1,5 @@
 use crate::shell::Shell;
-use std::{env, fs, path::PathBuf};
+use std::{env, path::PathBuf};
 
 pub fn cd(shell: &mut Shell, args: &Vec<String>) {
     if args.len() == 0 {
@@ -9,19 +9,40 @@ pub fn cd(shell: &mut Shell, args: &Vec<String>) {
             None => println!("cd: no such file or directory: home"),
         }
     } else if args.len() == 1 {
-        let new_path = &args[0];
-        if new_path.starts_with('/') || new_path.starts_with('~') {
-            let data = fs::read_dir(new_path);
+        let home_dir = match env::home_dir() {
+            Some(rv_path) => args[0].replace("~", rv_path.to_str().unwrap()),
+            None => "~".to_string(),
+        };
+        let new_path = if args[0].starts_with('~') {
+            match env::home_dir() {
+                Some(rv_path) => args[0].replace("~", rv_path.to_str().unwrap()),
+                None => {
+                    println!("cd: no such file or directory: {}", args[0]);
+                    return;
+                }
+            }
+        } else {
+            args[0].clone()
+        };
+
+        if new_path.starts_with('/') {
+            let data = env::set_current_dir(new_path.clone());
             match data {
-                Ok(_) => shell.cwd = PathBuf::from(new_path),
-                Err(_) => println!("cd: no such file or directory: {}", new_path),
+                Ok(_) => shell.cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
+                Err(_) => println!(
+                    "cd: no such file or directory: {}",
+                    new_path.replace(&home_dir, "~")
+                ),
             };
         } else {
-            let relative_new_path = shell.cwd.join(new_path);
-            let data = fs::read_dir(&relative_new_path);
+            let relative_new_path = shell.cwd.join(new_path.clone());
+            let data = env::set_current_dir(&relative_new_path);
             match data {
-                Ok(_) => shell.cwd = PathBuf::from(relative_new_path),
-                Err(_) => println!("cd: no such file or directory: {}", new_path),
+                Ok(_) => shell.cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
+                Err(_) => println!(
+                    "cd: no such file or directory: {}",
+                    new_path.replace(&home_dir, "~")
+                ),
             };
         }
     } else {

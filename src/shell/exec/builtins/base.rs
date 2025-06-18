@@ -13,3 +13,7 @@ pub fn exit(_shell: &mut Shell, args: &Vec<String>) {
 pub fn echo(_shell: &mut Shell, args: &Vec<String>) {
     println!("{}", args.join(" "));
 }
+
+pub fn pwd(shell: &mut Shell, _args: &Vec<String>) {
+    println!("{}", shell.cwd.to_str().unwrap_or(""));
+}

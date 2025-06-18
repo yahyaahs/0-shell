@@ -27,10 +27,27 @@ impl Shell {
     }
 
     pub fn update_prompt(&mut self) {
-        let mut display_path = self.cwd.clone();
-        display_path = PathBuf::from("~").join(display_path);
+        let display_path = self.cwd.clone();
+        let pwd_path = display_path.to_str().unwrap_or("");
+        let home_dir = env::home_dir()
+            .and_then(|p| p.to_str().map(|s| s.to_owned()))
+            .unwrap_or_else(|| String::from(""));
 
-        // Get Git branch name, if any
+        let last_segment = if pwd_path == home_dir {
+            "~"
+        } else {
+            self.cwd
+                .file_name()
+                .and_then(|os_str| os_str.to_str())
+                .unwrap_or("")
+        };
+
+        let display_name = if last_segment.is_empty() {
+            pwd_path.replace(&home_dir, "~")
+        } else {
+            last_segment.to_string()
+        };
+
         let git_branch = get_git_branch(&self.cwd);
         let branch_part = git_branch.map_or(String::new(), |b| {
             format!(" \x1b[31mgit:(\x1b[36m{}\x1b[31m)", b)
@@ -38,11 +55,7 @@ impl Shell {
 
         self.prompt = format!(
             "\x1b[1m \x1b[32m{}{} \x1b[32m➜\x1b[0m ",
-            display_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or(""),
-            branch_part
+            display_name, branch_part
         );
     }
 
