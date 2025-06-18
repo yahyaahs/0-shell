@@ -1,8 +1,10 @@
+use std::fs;
+
 use super::helper::{Types, check_type};
 use crate::shell::Shell;
 
-pub fn ls(shell: &mut Shell, args: &Vec<String>) {
-    let paths = shell.cwd.read_dir().unwrap();
+pub fn ls(_shell: &mut Shell, args: &Vec<String>) {
+    let paths = fs::read_dir(".").unwrap();
     let mut output = vec![];
     let show = args.contains(&"-a".to_string());
     let classify = args.contains(&"-F".to_string());
