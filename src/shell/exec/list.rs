@@ -1,5 +1,7 @@
 use std::{ffi::OsString, fs, fs::DirEntry, os::unix::fs::PermissionsExt};
 
+use crate::shell::Shell;
+
 #[derive(Debug)]
 pub enum Types {
     File(OsString),
@@ -27,7 +29,7 @@ pub fn check_type(name: DirEntry) -> Types {
         _ => Types::Error,
     }
 }
-pub fn ls(args: &Vec<String>) {
+pub fn ls(_shell: &Shell, args: &Vec<String>) {
     let paths = fs::read_dir(".").unwrap();
     let mut output = vec![];
     let show = args.contains(&"-a".to_string());

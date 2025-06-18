@@ -1,11 +1,13 @@
+use crate::shell::Shell;
+
 use super::list;
 use std::{collections::HashMap, env};
 
-pub fn get_builtins() -> HashMap<String, fn(&Vec<String>)> {
+pub fn get_builtins() -> HashMap<String, fn(&Shell, &Vec<String>)> {
     HashMap::from([
-        ("exit".to_string(), exit as fn(&Vec<String>)),
-        ("echo".to_string(), echo as fn(&Vec<String>)),
-        ("ls".to_string(), list::ls as fn(&Vec<String>)),
+        ("exit".to_string(), exit as fn(&Shell, &Vec<String>)),
+        ("echo".to_string(), echo as fn(&Shell, &Vec<String>)),
+        ("ls".to_string(), list::ls as fn(&Shell, &Vec<String>)),
     ])
 }
 
@@ -35,7 +37,7 @@ pub fn find_non_builtins(cmd: &str) -> Option<String> {
     None
 }
 
-fn exit(args: &Vec<String>) {
+fn exit(_shell: &Shell, args: &Vec<String>) {
     if args.len() == 0 {
         std::process::exit(0)
     };
@@ -45,6 +47,6 @@ fn exit(args: &Vec<String>) {
     };
 }
 
-fn echo(args: &Vec<String>) {
+fn echo(_shell: &Shell, args: &Vec<String>) {
     println!("{}", args.join(" "));
 }
