@@ -1,13 +1,47 @@
-use std::fs;
+use std::{fs::{self, DirEntry}, os::unix::fs::{MetadataExt, PermissionsExt}};
 
 use super::helper::{Types, check_type};
 use crate::shell::Shell;
+pub fn list_arg(args: &mut DirEntry) ->String {
+    println!("{:#?}", args.metadata());
+    let mode = args.metadata().unwrap().permissions().mode();
+    let file_type = match mode & 0o170000 {
+        0o040000 => 'd', // directory
+        0o100000 => '-', // regular file
+        0o120000 => 'l', // symlink
+        _ => '?',        // other
+    };
 
+    let mut perms = String::new();
+    perms.push(file_type);
+
+    // User permissions
+    perms.push(if mode & 0o400 != 0 { 'r' } else { '-' },);
+    perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
+    perms.push(if mode & 0o100 != 0 { 'x' } else { '-' });
+
+    // Group permissions
+    perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
+    perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
+    perms.push(if mode & 0o010 != 0 { 'x' } else { '-' });
+
+    // Others permissions
+    perms.push(if mode & 0o004 != 0 { 'r' } else { '-' });
+    perms.push(if mode & 0o002 != 0 { 'w' } else { '-' });
+    perms.push(if mode & 0o001 != 0 { 'x' } else { '-' });
+    perms
+}
+
+pub fn get_group(args: &DirEntry) -> String{
+    args.metadata().unwrap().uid();
+    
+}
 pub fn ls(_shell: &mut Shell, args: &Vec<String>) {
     let paths = fs::read_dir(".").unwrap();
     let mut output = vec![];
-    let show = args.contains(&"-a".to_string());
-    let classify = args.contains(&"-F".to_string());
+    let show = args.contains(&"a".to_string());
+    let classify = args.contains(&"F".to_string());
+    let mut perms = String::new();
     let blue = "\x1b[34m";
     let green = "\x1b[32m";
     let reset = "\x1b[0m";
@@ -16,7 +50,12 @@ pub fn ls(_shell: &mut Shell, args: &Vec<String>) {
         output.push("..".to_string());
     }
     for data in paths {
-        match check_type(data.unwrap()) {
+        let mut elems = data.unwrap();
+    if args.contains(&"l".to_string()){
+        perms = list_arg(&mut elems);
+
+    }
+        match check_type(&elems) {
             Types::Dir(name) => {
                 let name_str = name.to_string_lossy();
                 let display = if classify {
@@ -50,6 +89,7 @@ pub fn ls(_shell: &mut Shell, args: &Vec<String>) {
             _ => {}
         }
     }
+ 
     for item in output {
         println!("{}", item);
     }

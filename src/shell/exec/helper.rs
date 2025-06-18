@@ -15,7 +15,7 @@ pub enum Types {
     Error,
 }
 
-pub fn check_type(name: DirEntry) -> Types {
+pub fn check_type(name: &DirEntry) -> Types {
     match name.metadata() {
         Ok(meta) => {
             if meta.is_dir() {
