@@ -47,8 +47,12 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
     };
 
     let input = input.trim_start_matches(&exec).trim();
-    let mut args = tokenize(&input);
-    for (i, arg) in args.clone().iter().enumerate() {
+
+    let all_tokens = tokenize(&input);
+    let mut args: Vec<String> = Vec::new();
+    let mut flags: Vec<String> = Vec::new();
+
+    for arg in all_tokens {
         if arg.starts_with('-') {
             let new_vec: Vec<String> = arg
                 .trim_start_matches('-')
@@ -57,8 +61,7 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
                 .collect();
 
             if valid_flags(&new_vec) {
-                args.splice(i..i, new_vec.iter().cloned());
-                args.remove(i + new_vec.len());
+                new_vec.iter().for_each(|fl| flags.push(fl.to_owned()));
             } else {
                 return Err(format!(
                     "{}: invalid option -- '{}'\n",
@@ -66,17 +69,12 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
                     arg.trim_start_matches('-')
                 ));
             }
+        } else {
+            args.push(arg.to_owned());
         }
     }
 
-    Ok((
-        State::Exec,
-        Cmd {
-            exec,
-            flags: args,
-            args: Vec::new(),
-        },
-    ))
+    Ok((State::Exec, Cmd { exec, flags, args }))
 }
 
 fn tokenize(input: &str) -> Vec<String> {

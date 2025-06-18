@@ -32,10 +32,6 @@ pub fn list_arg(args: &mut DirEntry) ->String {
     perms
 }
 
-pub fn get_group(args: &DirEntry) -> String{
-    args.metadata().unwrap().uid();
-    
-}
 pub fn ls(_shell: &mut Shell, args: &Vec<String>) {
     let paths = fs::read_dir(".").unwrap();
     let mut output = vec![];

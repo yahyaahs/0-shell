@@ -97,7 +97,7 @@ impl Shell {
             match state {
                 State::Exec => match parse_command(&input) {
                     Ok((state, cmd)) => {
-                        println!("to exec: [{}] [{:?}]", cmd.exec, cmd.args);
+                        println!("to exec: [{}] [{:?}] [{:?}]", cmd.exec, cmd.flags, cmd.args);
                         match state {
                             State::Exec => {
                                 self.state = State::Exec;
