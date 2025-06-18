@@ -1,35 +1,9 @@
-use std::{ffi::OsString, fs, fs::DirEntry, os::unix::fs::PermissionsExt};
+use std::fs;
 
+use super::helper::{Types, check_type};
 use crate::shell::Shell;
 
-#[derive(Debug)]
-pub enum Types {
-    File(OsString),
-    Dir(OsString),
-    Executable(OsString),
-    Symlink(OsString),
-    NotSupported,
-    Error,
-}
-pub fn check_type(name: DirEntry) -> Types {
-    match name.metadata() {
-        Ok(meta) => {
-            if meta.is_dir() {
-                return Types::Dir(name.file_name());
-            } else if meta.permissions().mode() & 0o111 != 0 {
-                return Types::Executable(name.file_name());
-            } else if meta.is_file() {
-                return Types::File(name.file_name());
-            } else if meta.is_symlink() {
-                return Types::Symlink(name.file_name());
-            } else {
-                return Types::NotSupported;
-            }
-        }
-        _ => Types::Error,
-    }
-}
-pub fn ls(_shell: &Shell, args: &Vec<String>) {
+pub fn ls(_shell: &mut Shell, args: &Vec<String>) {
     let paths = fs::read_dir(".").unwrap();
     let mut output = vec![];
     let show = args.contains(&"-a".to_string());

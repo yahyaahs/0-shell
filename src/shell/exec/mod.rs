@@ -1,11 +1,9 @@
 pub mod builtins;
-pub mod list;
-
-pub use builtins::*;
-
-use crate::shell::parse::Cmd;
+pub mod helper;
 
 use super::{Shell, State};
+use crate::shell::parse::Cmd;
+use helper::find_non_builtins;
 
 pub fn execute_command(shell: &mut Shell, command: &Cmd) {
     match shell.builtins.get(&command.exec) {

@@ -9,7 +9,7 @@ use std::io::{stdin, stdout};
 use std::path::{Path, PathBuf};
 
 use crate::shell::State;
-use crate::shell::exec::builtins::get_builtins;
+use crate::shell::exec::helper::get_builtins;
 
 impl Shell {
     pub fn new() -> Shell {
@@ -32,7 +32,9 @@ impl Shell {
 
         // Get Git branch name, if any
         let git_branch = get_git_branch(&self.cwd);
-        let branch_part = git_branch.map_or(String::new(), |b| format!(" \x1b[31mgit:(\x1b[36m{}\x1b[31m)", b));
+        let branch_part = git_branch.map_or(String::new(), |b| {
+            format!(" \x1b[31mgit:(\x1b[36m{}\x1b[31m)", b)
+        });
 
         self.prompt = format!(
             "\x1b[1m \x1b[32m{}{} \x1b[32m➜\x1b[0m ",
