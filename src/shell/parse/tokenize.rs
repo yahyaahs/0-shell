@@ -32,7 +32,7 @@ pub fn scan_command(input: &str) -> State {
     if let Some(q) = in_quote {
         if q == '\"' {
             return State::Quote("dquote".to_string());
-        }else {
+        } else {
             return State::Quote("quote".to_string());
         }
     }
@@ -47,14 +47,29 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
     };
 
     let input = input.trim_start_matches(&exec).trim();
+    let mut args = tokenize(&input);
+    for (i, arg) in args.clone().iter().enumerate() {
+        if arg.starts_with('-') {
+            let new_vec: Vec<String> = arg
+                .trim_start_matches('-')
+                .chars()
+                .map(|c| c.to_string())
+                .collect();
 
-    Ok((
-        State::Exec,
-        Cmd {
-            exec,
-            args: tokenize(&input),
-        },
-    ))
+            if valid_flags(&new_vec) {
+                args.splice(i..i, new_vec.iter().cloned());
+                args.remove(i + new_vec.len());
+            } else {
+                return Err(format!(
+                    "{}: invalid option -- '{}'\n",
+                    exec,
+                    arg.trim_start_matches('-')
+                ));
+            }
+        }
+    }
+
+    Ok((State::Exec, Cmd { exec, args }))
 }
 
 fn tokenize(input: &str) -> Vec<String> {
@@ -120,4 +135,8 @@ fn tokenize(input: &str) -> Vec<String> {
     }
 
     tokens
+}
+
+fn valid_flags(_args: &Vec<String>) -> bool {
+    true
 }
