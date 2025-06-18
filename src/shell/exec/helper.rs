@@ -3,7 +3,10 @@ use crate::shell::Shell;
 use std::{collections::HashMap, env};
 use std::{ffi::OsString, fs::DirEntry, os::unix::fs::PermissionsExt};
 
-pub use super::builtins::{base, cd, list};
+pub use super::builtins::{
+    base::{echo, exit, pwd},
+    cd, list,
+};
 
 #[derive(Debug)]
 pub enum Types {
@@ -36,14 +39,9 @@ pub fn check_type(name: DirEntry) -> Types {
 
 pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Vec<String>)> {
     HashMap::from([
-        (
-            "exit".to_string(),
-            base::exit as fn(&mut Shell, &Vec<String>),
-        ),
-        (
-            "echo".to_string(),
-            base::echo as fn(&mut Shell, &Vec<String>),
-        ),
+        ("exit".to_string(), exit as fn(&mut Shell, &Vec<String>)),
+        ("echo".to_string(), echo as fn(&mut Shell, &Vec<String>)),
+        ("pwd".to_string(), pwd as fn(&mut Shell, &Vec<String>)),
         ("ls".to_string(), list::ls as fn(&mut Shell, &Vec<String>)),
         ("cd".to_string(), cd::cd as fn(&mut Shell, &Vec<String>)),
     ])
