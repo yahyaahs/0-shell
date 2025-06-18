@@ -1,5 +1,5 @@
-use std::{collections::HashMap, env, fs};
 use super::list;
+use std::{collections::HashMap, env};
 
 pub fn get_builtins() -> HashMap<String, fn(&Vec<String>)> {
     HashMap::from([
