@@ -43,7 +43,7 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("exit".to_string(), exit as fn(&mut Shell, &Cmd)),
         ("echo".to_string(), echo as fn(&mut Shell, &Cmd)),
         ("pwd".to_string(), pwd as fn(&mut Shell, &Cmd)),
-        // ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)), // chang ls signature
+        ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)), // chang ls signature
         ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
         ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
     ])
