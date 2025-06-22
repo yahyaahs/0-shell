@@ -1,11 +1,12 @@
 mod shell;
 use std::io::{Write, stdin, stdout};
+use std::sync::{Arc, Mutex};
 use std::{env, path::PathBuf};
 
 use shell::*;
 
-use crate::shell::exec::execute_command;
 use crate::shell::exec::helper::get_builtins;
+use crate::shell::exec::{StackData, execute_command, join_all};
 use crate::shell::parse::{parse_command, scan_command};
 
 fn main() {
@@ -21,13 +22,20 @@ fn main() {
         state: shell::State::Ready,
     };
 
+    let shell = Arc::new(Mutex::new(new_shell.clone()));
+    let stack = Mutex::new(StackData { processes: vec![] });
+
     update_prompt(&mut new_shell);
     let stdin = stdin();
     let mut input = String::new();
 
     loop {
         match &new_shell.state {
-            State::Exec => continue,
+            State::Exec => {
+                join_all(&stack);
+                new_shell.state = State::Ready;
+                continue;
+            }
             State::Ready => {
                 print!("{}", new_shell.prompt);
                 stdout().flush().unwrap();
@@ -62,7 +70,7 @@ fn main() {
                     match state {
                         State::Exec => {
                             new_shell.state = State::Exec;
-                            execute_command(&mut new_shell, &cmd);
+                            execute_command(Arc::clone(&shell), &stack, cmd);
                         }
                         _ => new_shell.state = state,
                     }

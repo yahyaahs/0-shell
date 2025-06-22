@@ -7,6 +7,8 @@ pub mod exec;
 pub mod parse;
 
 #[allow(dead_code)] //to remove it later when all field is used
+
+#[derive(Clone)]
 pub struct Shell {
     pub pid: u32,                     // Shell's process ID
     pub cwd: PathBuf,                 // Current working directory
@@ -19,6 +21,7 @@ pub struct Shell {
     pub state: State,
 }
 
+#[derive(Clone)]
 pub enum State {
     Exec,
     Ready,
