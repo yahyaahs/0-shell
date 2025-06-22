@@ -1,5 +1,5 @@
 mod shell;
-use std::io::{Write, stdin, stdout};
+use std::io::{Read, Write, stdin, stdout};
 use std::sync::{Arc, Mutex};
 use std::{env, path::PathBuf};
 
@@ -26,7 +26,6 @@ fn main() {
     let stack = Mutex::new(StackData { processes: vec![] });
 
     update_prompt(&mut new_shell);
-    let stdin = stdin();
     let mut input = String::new();
 
     loop {
@@ -54,11 +53,16 @@ fn main() {
         };
 
         if input.len() > 0 {
-            let mut temp_buffer = String::new();
-            stdin.read_line(&mut temp_buffer).unwrap();
+            let temp_buffer = match custom_read_line() {
+                Some(line) => line,
+                None => break,
+            };
             input = format!("{}{}", input, temp_buffer);
         } else {
-            stdin.read_line(&mut input).unwrap();
+            input = match custom_read_line() {
+                Some(line) => line,
+                None => break,
+            };
         }
 
         let input = input.trim();
@@ -80,4 +84,30 @@ fn main() {
             _ => new_shell.state = state,
         };
     }
+}
+
+fn custom_read_line() -> Option<String> {
+    let mut stdin = stdin();
+    let mut res = String::new();
+    let mut buff = [0u8; 1];
+
+    loop {
+        let size = stdin.read(&mut buff).unwrap();
+        if size == 0 {
+            if res.len() == 0 {
+                println!("\nEOF reached: exiting...");
+                return None; // EOF
+            } else {
+                continue;
+            }
+        }
+
+        if buff[0] == b'\n' {
+            break;
+        }
+
+        res.push(buff[0] as char);
+    }
+
+    Some(res)
 }
