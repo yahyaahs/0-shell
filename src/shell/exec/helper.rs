@@ -6,7 +6,7 @@ use std::{ffi::OsString, fs::DirEntry, os::unix::fs::PermissionsExt};
 
 pub use super::builtins::{
     base::{echo, exit, pwd},
-    cat, cd, list,
+    cat, cd, list, mkdir,
 };
 
 #[derive(Debug)]
@@ -46,6 +46,7 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)), // chang ls signature
         ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
         ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
+        ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
     ])
 }
 
