@@ -8,23 +8,26 @@ use io::*;
 */
 pub fn mkdir(shell: &mut Shell, command:&Cmd) {
     println!("{:?}",command.args);
-    let folder_name : &String = &command.args[0];
-    // let err : io::Error;
-    create_dir(folder_name).unwrap_or_else(|error|{
-        // err = error;
-        match error.kind() {
-            ErrorKind::NotFound => {
-                let not_found : Vec<&str>= command.args[0].split("/").collect();
-                println!("{}: {}: {}",command.exec,not_found[0],"No such file or directory");
-            },
-            ErrorKind::AlreadyExists => {
-                let already_exist : Vec<&str>= command.args[0].split("/").collect();
-                println!("{}: {}: {}",command.exec,already_exist[0],"File exists");
-
+    for f in &command.args {
+        let folder_name : &String = f;
+        // let err : io::Error;
+        create_dir(folder_name).unwrap_or_else(|error|{
+            // err = error;
+            match error.kind() {
+                ErrorKind::NotFound => {
+                    let not_found : Vec<&str>= f.split("/").collect();
+                    println!("{}: {}: {}",command.exec,not_found[0],"No such file or directory");
+                },
+                ErrorKind::AlreadyExists => {
+                    let already_exist : Vec<&str>= f.split("/").collect();
+                    println!("{}: {}: {}",command.exec,already_exist[0],"File exists");
+    
+                }
+                _ => println!("{}: {}",command.exec,error)
             }
-            _ => println!("{}: {}",command.exec,error)
-        }
-       
-        // err.clear();
-    })
+           
+            // err.clear();
+        })
+    }
+   
 }
