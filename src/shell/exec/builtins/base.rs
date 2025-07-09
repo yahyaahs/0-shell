@@ -1,4 +1,4 @@
-use crate::shell::{Shell, parse::Cmd};
+use super::*;
 
 pub fn exit(_shell: &mut Shell, cmd: &Cmd) {
     if cmd.args.len() == 0 {

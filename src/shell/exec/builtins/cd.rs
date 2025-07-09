@@ -1,4 +1,5 @@
-use crate::shell::{Shell, parse::Cmd, update_prompt};
+use super::*;
+
 use std::{env, path::PathBuf};
 
 pub fn cd(shell: &mut Shell, cmd: &Cmd) {
@@ -48,6 +49,4 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
     } else {
         println!("cd: args not suported: {}", cmd.args.join(" "));
     }
-
-    update_prompt(shell);
 }

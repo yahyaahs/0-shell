@@ -1,42 +1,35 @@
 pub mod builtins;
-pub mod helper;
 
-use std::{
-    sync::Arc,
-    thread::{JoinHandle, spawn},
+use crate::shell::Shell;
+use crate::shell::exec::builtins::mkdir;
+use crate::shell::parse::Cmd;
+
+use std::{collections::HashMap, env};
+use std::{ffi::OsString, fs::DirEntry, os::unix::fs::PermissionsExt};
+
+pub use builtins::{
+    base::{echo, exit, pwd},
+    cat, cd, list,
 };
 
-use super::Shell;
-use crate::shell::{exec::helper::find_non_builtins, parse::Cmd};
+use std::sync::{Arc, Mutex};
+use std::thread::{JoinHandle, spawn};
 
-use std::sync::Mutex;
-
-pub struct StackData {
-    pub processes: Vec<JoinHandle<()>>,
+#[derive(Debug)]
+pub enum Types {
+    File(OsString),
+    Dir(OsString),
+    Executable(OsString),
+    Symlink(OsString),
+    NotSupported,
+    Error,
 }
 
-pub fn add_process(stack: &Mutex<StackData>, handle: JoinHandle<()>) {
-    let mut guard = stack.lock().unwrap();
-    guard.processes.push(handle);
-}
-
-pub fn join_all(stack: &Mutex<StackData>) {
-    let mut guard = stack.lock().unwrap();
-    while let Some(handle) = guard.processes.pop() {
-        match handle.join() {
-            Ok(_) => continue,
-            Err(_) => {
-                println!("da3na awald 3ami")
-            }
-        };
-    }
-}
-
-pub fn execute_command(shell: Arc<Mutex<Shell>>, stack: &Mutex<StackData>, command: Cmd) {
+pub fn execute_command(shell: Arc<Mutex<Shell>>, command: Cmd) -> JoinHandle<()> {
     let shell_clone = Arc::clone(&shell);
     let command_clone = command.clone();
 
-    let handle = spawn(move || {
+    spawn(move || {
         let mut shell_locked = match shell_clone.lock() {
             Ok(g) => g,
             Err(poisoned) => poisoned.into_inner(),
@@ -53,7 +46,62 @@ pub fn execute_command(shell: Arc<Mutex<Shell>>, stack: &Mutex<StackData>, comma
                 }
             }
         }
-    });
+    })
+}
 
-    add_process(stack, handle);
+pub fn check_type(name: &DirEntry) -> Types {
+    match name.metadata() {
+        Ok(meta) => {
+            if meta.is_dir() {
+                return Types::Dir(name.file_name());
+            } else if meta.permissions().mode() & 0o111 != 0 {
+                return Types::Executable(name.file_name());
+            } else if meta.is_file() {
+                return Types::File(name.file_name());
+            } else if meta.is_symlink() {
+                return Types::Symlink(name.file_name());
+            } else {
+                return Types::NotSupported;
+            }
+        }
+        _ => Types::Error,
+    }
+}
+
+pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
+    HashMap::from([
+        ("exit".to_string(), exit as fn(&mut Shell, &Cmd)),
+        ("echo".to_string(), echo as fn(&mut Shell, &Cmd)),
+        ("pwd".to_string(), pwd as fn(&mut Shell, &Cmd)),
+        ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)), // chang ls signature
+        ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
+        ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
+        ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
+    ])
+}
+
+pub fn find_non_builtins(cmd: &str) -> Option<String> {
+    let path = match env::var("PATH") {
+        Ok(path) => path,
+        Err(_) => return None,
+    };
+
+    for dir in path.split(":") {
+        let entries = std::fs::read_dir(&dir);
+        if let Ok(entries) = entries {
+            for entry in entries.flatten() {
+                let path = entry.path();
+
+                if path.is_file() {
+                    if let Some(path_str) = path.to_str() {
+                        if path_str.to_string().ends_with(&("/".to_owned() + cmd)) {
+                            return Some(path_str.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }

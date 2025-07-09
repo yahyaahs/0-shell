@@ -2,12 +2,12 @@ use crate::shell::State;
 
 use super::*;
 
-pub fn scan_command(input: &str) -> State {
+pub fn scan_command(input: &str) -> Option<State> {
     if input.ends_with("\\") && !input.ends_with("\\\\") {
-        return State::BackNewLine;
+        return Some(State::BackNewLine);
     }
 
-    let mut in_quote = None; // None, Some('"'), or Some('\'')
+    let mut in_quote = None;
     let mut escaped = false;
 
     for c in input.chars() {
@@ -31,16 +31,16 @@ pub fn scan_command(input: &str) -> State {
 
     if let Some(q) = in_quote {
         if q == '\"' {
-            return State::Quote("dquote".to_string());
+            return Some(State::Quote("dquote".to_string()));
         } else {
-            return State::Quote("quote".to_string());
+            return Some(State::Quote("quote".to_string()));
         }
     }
 
-    State::Exec
+    None
 }
 
-pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
+pub fn parse_command(input: &str) -> Result<Cmd, String> {
     let exec = match input.split_whitespace().nth(0) {
         Some(exe) => exe.to_string(),
         None => return Err("".to_owned()),
@@ -74,7 +74,7 @@ pub fn parse_command(input: &str) -> Result<(State, Cmd), String> {
         }
     }
 
-    Ok((State::Exec, Cmd { exec, flags, args }))
+    Ok(Cmd { exec, flags, args })
 }
 
 fn tokenize(input: &str) -> Vec<String> {
