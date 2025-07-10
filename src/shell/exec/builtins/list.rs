@@ -5,6 +5,16 @@ use std::{fs::{self, DirEntry}, os::unix::fs::{MetadataExt, PermissionsExt}, tim
 };
 use users::{get_group_by_gid, get_user_by_uid};
 use chrono::{DateTime, Local};
+#[derive(Debug)]
+pub enum Types {
+    File(OsString),
+    Dir(OsString),
+    Executable(OsString),
+    Symlink(OsString),
+    NotSupported,
+    Error,
+}
+
 pub fn check_type(name: &DirEntry) -> Types {
     match name.metadata() {
         Ok(meta) => {
