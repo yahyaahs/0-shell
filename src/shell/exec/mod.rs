@@ -1,6 +1,6 @@
 pub mod builtins;
 
-use crate::shell::Shell;
+use crate::shell::{self, Shell};
 use crate::shell::exec::builtins::mkdir;
 use crate::shell::parse::Cmd;
 
@@ -25,46 +25,48 @@ pub enum Types {
     Error,
 }
 
-pub fn execute_command(shell: Arc<Mutex<Shell>>, command: Cmd) -> JoinHandle<()> {
-    let shell_clone = Arc::clone(&shell);
-    let command_clone = command.clone();
+// pub fn execute_command(shell: Arc<Mutex<Shell>>, command: Cmd) -> JoinHandle<()> {
+//     let shell_clone = Arc::clone(&shell);
+//     let command_clone = command.clone();
 
-    spawn(move || {
-        let mut shell_locked = match shell_clone.lock() {
-            Ok(g) => g,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+//     spawn(move || {
+//         let mut shell_locked = match shell_clone.lock() {
+//             Ok(g) => g,
+//             Err(poisoned) => poisoned.into_inner(),
+//         };
 
-        match shell_locked.builtins.get(&command_clone.exec) {
-            Some(func) => func(&mut shell_locked, &command_clone),
-            None => {
-                println!("Command not found: {}", command_clone.exec);
+//         match shell_locked.builtins.get(&command_clone.exec) {
+//             Some(func) => func(&mut shell_locked, &command_clone),
+//             None => {
+//                 println!("Command not found: {}", command_clone.exec);
 
-                let bin_cmd = find_non_builtins(&command.exec);
-                if let Some(bin) = bin_cmd {
-                    println!("but we found this: {}", bin);
+//                 let bin_cmd = find_non_builtins(&command.exec);
+//                 if let Some(bin) = bin_cmd {
+//                     println!("but we found this: {}", bin);
+//                 }
+//             }
+//         }
+//     })
+// }
+unsafe  extern "C" {
+    pub fn fork() -> i32;
+    pub fn getpid() -> i32;
+}
+pub fn execution(shell : &mut Shell, command: Cmd){
+    unsafe {
+        let pid = fork();
+        if pid < 0 {
+            println!("Fork failed");
+            return;
+        } else if pid == 0 {
+            match shell.builtins.get(&command.exec) {
+                Some(func) => func(shell, &command),
+                None => {
+                    println!("Command not found: {}", command.exec);
                 }
             }
+            exit(shell, &command);
         }
-    })
-}
-
-pub fn check_type(name: &DirEntry) -> Types {
-    match name.metadata() {
-        Ok(meta) => {
-            if meta.is_dir() {
-                return Types::Dir(name.file_name());
-            } else if meta.permissions().mode() & 0o111 != 0 {
-                return Types::Executable(name.file_name());
-            } else if meta.is_file() {
-                return Types::File(name.file_name());
-            } else if meta.is_symlink() {
-                return Types::Symlink(name.file_name());
-            } else {
-                return Types::NotSupported;
-            }
-        }
-        _ => Types::Error,
     }
 }
 

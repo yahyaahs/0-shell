@@ -1,11 +1,29 @@
 use super::*;
 use crate::shell::Shell;
-use std::path::{Path, PathBuf};
-use std::{
-     fs::{self, DirEntry}, os::unix::fs::{MetadataExt, PermissionsExt}, time::{Duration, SystemTime}
+use std::path::{ PathBuf};
+use std::{fs::{self, DirEntry}, os::unix::fs::{MetadataExt, PermissionsExt}, time::{Duration, SystemTime}
 };
 use users::{get_group_by_gid, get_user_by_uid};
 use chrono::{DateTime, Local};
+pub fn check_type(name: &DirEntry) -> Types {
+    match name.metadata() {
+        Ok(meta) => {
+            if meta.is_dir() {
+                return Types::Dir(name.file_name());
+            } else if meta.permissions().mode() & 0o111 != 0 {
+                return Types::Executable(name.file_name());
+            } else if meta.is_file() {
+                return Types::File(name.file_name());
+            } else if meta.is_symlink() {
+                return Types::Symlink(name.file_name());
+            } else {
+                return Types::NotSupported;
+            }
+        }
+        _ => Types::Error,
+    }
+}
+
 pub fn list_arg(args: &DirEntry) -> String {
     let mode = args.metadata().unwrap().permissions().mode();
     let file_type = match mode & 0o170000 {
