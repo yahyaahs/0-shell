@@ -14,7 +14,6 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
             Some(rv_path) => cmd.args[0].replace("~", rv_path.to_str().unwrap()),
             None => "~".to_string(),
         };
-        println!("home dir {:?}",home_dir);
         let new_path = if cmd.args[0].starts_with('~') {
             match env::home_dir() {
                 Some(rv_path) => cmd.args[0].replace("~", rv_path.to_str().unwrap()),
@@ -26,7 +25,6 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
         } else {
             cmd.args[0].clone()
         };
-        println!("new path {:?}",new_path);
 
         if new_path.starts_with('/') {
             let data = env::set_current_dir(new_path.clone());

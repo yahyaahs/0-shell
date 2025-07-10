@@ -10,6 +10,9 @@ use std::{fs::create_dir, io};
 
 pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
     println!("{:?}", command.args);
+    if command.args.len() == 0 {
+        println!("usage: mkdir directory_name ...")
+    }
     for f in &command.args {
         let folder_name: &String = f;
         // let err : io::Error;

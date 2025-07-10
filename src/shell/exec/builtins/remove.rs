@@ -1,18 +1,15 @@
-use crate::shell::{exec::check_type, parse::Cmd, Shell};
+use crate::shell::{parse::Cmd, Shell};
 
 use io::*;
 use std::{fs::{self, metadata, remove_dir_all, remove_file, Metadata}, io};
 use std::os::unix::fs::{MetadataExt,PermissionsExt};
 use users::{get_user_by_uid, get_group_by_gid};
 
-
-/*
-    mkdir folder already existed =>  mkdir: Desktop: File exists
-    mkdir folder existed and one not => mkdir: Desktop: File exists\n create the new one
-    mkdir folder with not valid path => mkdir: jj: No such file or directory
-*/
-
 pub fn rm(_shell: &mut Shell, command: &Cmd) {
+    if command.args.len() == 0 {
+        println!("usage: rm [-r] file ...\nunlink [--] file");
+    }
+
     for path in &command.args {
         let is_exist = match fs::exists(path) {
             Ok(b) => b,
@@ -30,9 +27,13 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                 },
             };
             if data_of_target.is_dir() {
-                if command.flags.len() != 1 || command.flags[0] != "r" {
-                    let flags : String = command.flags.iter().map(|c| c.to_string()).collect();
+                let flags : String = command.flags.iter().map(|c| c.to_string()).collect();
+                if command.flags.len() == 0 {
+                    println!("{}: {}: {}",command.exec, path, "is a directory");
+                    return;
+                }else if command.flags.len() > 1 || flags != "r"{
                     println!("{}: illegal option -- {}\nusage: rm [-r] file ...\nunlink [--] file",command.exec,flags);
+                    return;
                 }else {
                     if can_remove_directly(data_of_target, path) {
                         match remove_dir_all(path) {
