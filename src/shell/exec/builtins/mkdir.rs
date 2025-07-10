@@ -9,7 +9,7 @@ use std::{fs::create_dir, io};
 */
 
 pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
-    // println!("{:?}", command.args);
+    println!("{:?}", command.args);
     for f in &command.args {
         let folder_name: &String = f;
         // let err : io::Error;
@@ -24,8 +24,7 @@ pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
                     );
                 }
                 ErrorKind::AlreadyExists => {
-                    let already_exist: Vec<&str> = f.split("/").collect();
-                    println!("{}: {}: {}", command.exec, already_exist[0], "File exists");
+                    println!("{}: {}: {}", command.exec, f, "File exists");
                 }
                 _ => println!("{}: {}", command.exec, error),
             }

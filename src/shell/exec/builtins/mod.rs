@@ -3,5 +3,6 @@ pub mod cat;
 pub mod cd;
 pub mod list;
 pub mod mkdir;
+pub mod remove;
 
 pub use super::*;

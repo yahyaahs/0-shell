@@ -1,7 +1,7 @@
 pub mod builtins;
 
 use crate::shell::Shell;
-use crate::shell::exec::builtins::mkdir;
+use crate::shell::exec::builtins::{mkdir, remove};
 use crate::shell::parse::Cmd;
 
 use std::{collections::HashMap, env};
@@ -77,6 +77,7 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
         ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
         ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
+        ("rm".to_string(), remove::rm as fn(&mut Shell, &Cmd)),
     ])
 }
 
