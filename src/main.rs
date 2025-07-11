@@ -5,7 +5,7 @@ use std::{env, path::PathBuf};
 
 use shell::*;
 
-use crate::shell::exec::{execute_command, get_builtins};
+use crate::shell::exec::{ execution, get_builtins};
 use crate::shell::parse::{parse_command, scan_command};
 
 fn main() {
@@ -53,13 +53,7 @@ fn main() {
             Some(new_state) => shell.state = new_state,
             None => match parse_command(&input) {
                 Ok(cmd) => {
-                    // println!("to exec: [{}] [{:?}] [{:?}]", cmd.exec, cmd.flags, cmd.args);
-                    let arc_shell = Arc::new(Mutex::new(shell.clone()));
-                    let executor = execute_command(Arc::clone(&arc_shell), cmd.clone());
-                    match executor.join() {
-                        Ok(_) => shell.state = State::Ready,
-                        Err(_) => println!("Error on executing: {}", cmd.exec),
-                    };
+                    execution(&mut shell, cmd);
                 }
                 Err(err) => print!("{err}"),
             },

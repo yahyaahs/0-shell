@@ -2,12 +2,26 @@ use super::*;
 
 use std::{fs, io};
 
+// unsafe extern "C" {
+//     fn signal(signal: i32, handler: extern "C" fn(i32));
+// }
+// extern "C" fn signal_handler(_signal: i32) {
+//     println!("\nsignal, exit");
+//     // std::process::exit(0);
+// }
 pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
+    // unsafe {
+    // signal(2, signal_handler);
+    // }
     if cmd.args.len() == 0 {
         let stdin = io::stdin();
         loop {
             let mut input = String::new();
-            stdin.read_line(&mut input).unwrap();
+            let  bytes = stdin.read_line(&mut input).unwrap();
+            if bytes == 0 {
+                println!();
+                break; 
+            }
             print!("{}", input);
         }
     } else {
