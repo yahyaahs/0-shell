@@ -34,7 +34,9 @@ pub fn execution(shell : &mut Shell, command: Cmd){
     unsafe {
             match shell.builtins.get(&command.exec) {
                 Some(func) =>{
-                    let pid = fork();
+                    match command.exec.as_str() {
+                        "cd" | "exit" | "pwd" | "echo" => func(shell, &command),
+                        _=>{let pid = fork();
                     if pid < 0 {
                         println!("Fork failed");
                         return;
@@ -50,7 +52,9 @@ pub fn execution(shell : &mut Shell, command: Cmd){
                         } else {
                             println!("child {} finished", pid);
                         }
+                    } }
                     }
+                    
                 } ,
                 None => {
                     println!("Command not found: {}", command.exec);
