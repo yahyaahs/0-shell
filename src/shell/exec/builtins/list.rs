@@ -1,10 +1,14 @@
 use super::*;
 use crate::shell::Shell;
-use std::path::{ PathBuf};
-use std::{fs::{self, DirEntry}, os::unix::fs::{MetadataExt, PermissionsExt}, time::{Duration, SystemTime}
+use chrono::{DateTime, Local};
+use std::path::PathBuf;
+use std::{
+    fs::{self, DirEntry},
+    os::unix::fs::{MetadataExt, PermissionsExt},
+    time::{Duration, SystemTime},
 };
 use users::{get_group_by_gid, get_user_by_uid};
-use chrono::{DateTime, Local};
+
 #[derive(Debug)]
 pub enum Types {
     File(OsString),
@@ -77,26 +81,24 @@ pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
     };
     (username, group)
 }
-pub fn get_time(args: &DirEntry) -> String{
-      let time = match args.metadata().and_then(|m| m.modified()) {
+pub fn get_time(args: &DirEntry) -> String {
+    let time = match args.metadata().and_then(|m| m.modified()) {
         Ok(mtime) => mtime,
         Err(_) => return "?".to_string(),
     };
     let now = SystemTime::now();
-    let under_six = Duration::from_secs(60*60*24*30);
-    let passed = match now.duration_since(time){
-        Ok(duration)=> duration< under_six ,
-        Err(_)=> true,
+    let under_six = Duration::from_secs(60 * 60 * 24 * 30);
+    let passed = match now.duration_since(time) {
+        Ok(duration) => duration < under_six,
+        Err(_) => true,
     };
     let formated: DateTime<Local> = time.into();
 
-    if passed{
+    if passed {
         formated.format("%b %e %H:%M").to_string()
     } else {
         formated.format("%b %e  %Y").to_string()
     }
-
-
 }
 pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let paths = fs::read_dir(".").unwrap();
@@ -159,17 +161,22 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
             }
             _ => {}
         }
-        if args.flags.contains(&"l".to_string())&& !output.is_empty(){
-            println!("{}", format!("{} {} {} {:>5} {:>5} {}", perms , username, group, size, date, output));
+        if args.flags.contains(&"l".to_string()) && !output.is_empty() {
+            println!(
+                "{}",
+                format!(
+                    "{} {} {} {:>5} {:>5} {}",
+                    perms, username, group, size, date, output
+                )
+            );
             output.clear();
-        }else if !output.is_empty(){
+        } else if !output.is_empty() {
             println!("{}", output);
             output.clear();
-
         }
         // if args.contains(&"l".to_string()){
         //     for dots in paths_hidden{
-                
+
         //     }
         // }
     }

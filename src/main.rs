@@ -1,11 +1,10 @@
 mod shell;
 use std::io::{Write, stdin, stdout};
-use std::sync::{Arc, Mutex};
 use std::{env, path::PathBuf};
 
 use shell::*;
 
-use crate::shell::exec::{ execution, get_builtins};
+use crate::shell::exec::{execution, get_builtins};
 use crate::shell::parse::{parse_command, scan_command};
 
 fn main() {
