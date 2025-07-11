@@ -101,7 +101,14 @@ pub fn get_time(args: &DirEntry) -> String {
     }
 }
 pub fn ls(_shell: &mut Shell, args: &Cmd) {
-    let paths = fs::read_dir(".").unwrap();
+    let mut paths = Vec::new();
+    if args.args.is_empty(){
+        paths.push(fs::read_dir("."));
+    } else{
+        for item in &args.args{
+            paths.push(fs::read_dir(item));
+        }
+    }
     let mut output = String::new();
     let show = args.flags.contains(&"a".to_string());
     let classify = args.flags.contains(&"F".to_string());
@@ -119,8 +126,11 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
         paths_hidden.push(PathBuf::from(".."));
     }
 
-    for data in paths {
-        let mut elems = data.unwrap();
+    for data in paths{
+        let p = data.as_ref().unwrap();
+        println!("{:?} :",p);
+        for it in data.unwrap(){
+            let mut elems = it.unwrap();
         if args.flags.contains(&"l".to_string()) {
             perms = list_arg(&mut elems);
 
@@ -174,5 +184,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
             println!("{}", output);
             output.clear();
         }
+        }
+        
     }
 }
