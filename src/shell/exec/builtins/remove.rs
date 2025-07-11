@@ -6,7 +6,6 @@ use std::{
     fs::{self, Metadata, metadata, remove_dir_all, remove_file},
     io,
 };
-
 use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn rm(_shell: &mut Shell, command: &Cmd) {
