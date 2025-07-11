@@ -1,6 +1,5 @@
 mod shell;
 use std::io::{Write, stdin, stdout};
-use std::ops::ShlAssign;
 use std::{env, path::PathBuf};
 
 use shell::*;
@@ -13,7 +12,6 @@ unsafe extern "C" {
 extern "C" fn signal_handler(_signal: i32) {
     print!("\n$");
     stdout().flush().unwrap();
-
 }
 fn main() {
     let mut shell = Shell {

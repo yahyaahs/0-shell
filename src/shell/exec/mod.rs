@@ -4,7 +4,7 @@ use crate::shell::exec::builtins::mkdir;
 use crate::shell::parse::Cmd;
 use crate::shell::{Shell};
 
-use std::{collections::HashMap, env};
+use std::{collections::HashMap};
 use std::{ffi::OsString};
 
 pub use builtins::{
