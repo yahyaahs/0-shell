@@ -83,10 +83,11 @@ pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
 }
 pub fn get_time(args: &DirEntry) -> String {
     let time = match args.metadata().and_then(|m| m.modified()) {
-        Ok(mtime) => mtime,
+        Ok(mtime) => mtime + Duration::from_secs(3600),
         Err(_) => return "?".to_string(),
     };
     let now = SystemTime::now();
+    // println!("time {:#?} ", now);
     let under_six = Duration::from_secs(60 * 60 * 24 * 30);
     let passed = match now.duration_since(time) {
         Ok(duration) => duration < under_six,
