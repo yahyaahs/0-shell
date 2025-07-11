@@ -21,7 +21,16 @@ unsafe  extern "C" {
     pub fn getppid() -> i32;
     pub fn wait(status: *mut i32) -> i32;
 }
+unsafe extern "C" {
+    fn signal(signal: i32, handler: extern "C" fn(i32));
+}
+extern "C" fn signal_handler(_signal: i32) {
+    println!("\nsignal, exit");
+}
 pub fn execution(shell : &mut Shell, command: Cmd){
+    unsafe {
+    signal(2, signal_handler);
+    }
     unsafe {
             match shell.builtins.get(&command.exec) {
                 Some(func) =>{
