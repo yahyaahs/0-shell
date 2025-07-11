@@ -1,6 +1,6 @@
 pub mod builtins;
 
-use crate::shell::exec::builtins::mkdir;
+// use crate::shell::exec::builtins;
 use crate::shell::parse::Cmd;
 use crate::shell::{Shell};
 
@@ -9,7 +9,7 @@ use std::{ffi::OsString};
 
 pub use builtins::{
     base::{echo, exit, pwd},
-    cat, cd, list,
+    cat, cd, list, mkdir, remove, copyf::cp
 };
 
 
@@ -32,7 +32,7 @@ pub fn execution(shell: &mut Shell, command: Cmd) {
                         return;
                     } else if pid == 0 {
                         func(shell, &command);
-                        println!("Child process {} finished", getppid());
+                        // println!("Child process {} finished", getppid());
                         std::process::exit(0);
                     } else {
                         let mut status = 0;
@@ -40,7 +40,7 @@ pub fn execution(shell: &mut Shell, command: Cmd) {
                         if status != 0 {
                             println!("error wait");
                         } else {
-                            println!("child {} finished", pid);
+                            // println!("child {} finished", pid);
                         }
                     }
                 }
@@ -61,5 +61,7 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
         ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
         ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
+        ("rm".to_string(), remove::rm as fn(&mut Shell, &Cmd)),
+        ("cp".to_string(), cp as fn(&mut Shell, &Cmd)),
     ])
 }

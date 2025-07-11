@@ -30,11 +30,11 @@ fn main() {
     }
 
     loop {
-        println!("shell state {:#?}", shell.state);
+        // println!("shell state {:#?}", shell.state);
         match &shell.state {
             State::Ready => {
-                shell.prompt = String::from(shell.cwd.to_str().unwrap());
-                print!("\x1b[0;36;1;96m{} \x1b[0;32;1;96m>\x1b[0m ", shell.prompt);
+                shell.prompt = String::from(shell.prompt);
+                print!("{} ", shell.prompt);
                 stdout().flush().unwrap();
                 input = String::new();
             }
