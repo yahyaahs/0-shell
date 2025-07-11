@@ -68,7 +68,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
 }
 
 pub fn can_remove_directly(data_of_target: Metadata, path: &String) -> bool {
-    if data_of_target.permissions().mode() & 0o777 == 0o444 {
+    if data_of_target.permissions().mode() & 0o200 != 0 {
         let uid = data_of_target.uid();
         let gid = data_of_target.gid();
         let user_name = get_user_by_uid(uid).unwrap();

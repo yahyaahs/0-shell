@@ -1,6 +1,6 @@
 use crate::shell::{Shell, parse::Cmd};
 use io::*;
-use std::{fs::{self, metadata, OpenOptions}, io};
+use std::{fs::{self, metadata, OpenOptions}, io, os::unix::fs::PermissionsExt};
 
 pub fn cp(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() < 2 {
@@ -22,11 +22,11 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
             return
         }
         for source in &sources {
-            let data_of_file = match metadata(source) {
+            let data_of_source = match metadata(source) {
                 Ok(data) => data,
                 Err(error) => {println!("{:?}", error); return},
             };
-            if data_of_file.is_dir() {
+            if data_of_source.is_dir() {
                 println!("{}: {} {}", command.exec, source, "is a directory (not copied).");
                 continue
             }
@@ -39,7 +39,8 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                     return
                 }
             }; 
-            create_file(target, &content, source);
+            create_file(target, &content, source, &command.exec);
+            // copy_perms(data_of_source, )
         }
     }
 }
@@ -78,25 +79,55 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         Ok(data) => {
            data
         },
-        Err(error) => {
-            eprintln!("Error reading file: {}", error);
-            return
+        Err(error) => match error.kind() {
+            ErrorKind::PermissionDenied => {
+                println!("{}: {}: {}", command, source,"Permission denied");
+                return
+            }
+            _ =>{ eprintln!("Error reading file: {}", error); return}
         }
     }; 
-    create_file(target, &content, source);
+    create_file(target, &content, source, command);
 }
 
-pub fn create_file(path: &String, content: &String, source: &String) {
+pub fn create_file(path: &String, content: &String, source: &String, command: &String) {
     match fs::write(path, content) {
         Ok(_) => return,
         Err(error) => match error.kind() {
             ErrorKind::IsADirectory => {
-                let new_path = format!("{}/{}",path,source);
-                let _ = fs::write(new_path, content);
+                let new_path = &format!("{}/{}",path,source);
+                match fs::write(new_path, content) {
+                    Ok(_) => return,
+                    Err(_) => {
+                        create_file(new_path, content, source, command);
+                        copy_perms(source, new_path);
+                        return
+                    }
+                }
+            },
+            ErrorKind::PermissionDenied => {
+                println!("{}: {}: {}", command, path,"Permission denied");
+                return
             }
             _ => {
                 println!("{:?}", error);
             }
         }
-    }
+    };
+    copy_perms(source, path);
+}
+
+pub fn copy_perms(source: &String, target: &String) {
+    let data_of_source = match metadata(&source) {
+        Ok(data) => data,
+        Err(error) => {println!("{:?}", error); return},
+    };
+    let src_perms = data_of_source.permissions();
+    let data_of_target = match metadata(&target) {
+        Ok(data) => data,
+        Err(error) => {println!("{:?}", error); return},
+    };
+    let mut target_perms = data_of_target.permissions();
+    target_perms.set_mode(src_perms.mode());
+    let _ = fs::set_permissions(target, target_perms);
 }
