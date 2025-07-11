@@ -43,7 +43,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                 } else {
                     if can_remove_directly(data_of_target, path) {
                         match remove_dir_all(path) {
-                            Ok(_) => return,
+                            Ok(_) => continue,
                             Err(error) => match error.kind() {
                                 ErrorKind::PermissionDenied => {
                                     println!("{}: {}: {}", command.exec, path, "Permission denied")
@@ -68,7 +68,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
 }
 
 pub fn can_remove_directly(data_of_target: Metadata, path: &String) -> bool {
-    if data_of_target.permissions().mode() & 0o200 != 0 {
+    if data_of_target.permissions().mode() & 0o200 == 0 {
         let uid = data_of_target.uid();
         let gid = data_of_target.gid();
         let user_name = get_user_by_uid(uid).unwrap();
