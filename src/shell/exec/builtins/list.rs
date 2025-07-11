@@ -40,10 +40,15 @@ pub fn check_type(name: &DirEntry) -> Types {
 
 pub fn list_arg(args: &DirEntry) -> String {
     let mode = args.metadata().unwrap().permissions().mode();
+    println!("mode {} ", mode);
     let file_type = match mode & 0o170000 {
         0o040000 => 'd', // directory
         0o100000 => '-', // regular file
         0o120000 => 'l', // symlink
+        0o140000 => 's', //socket
+        0o010000 => 'p', //pipe
+        0o060000 => 'b', //disc
+        0o020000 => 'c', //keyb , tty, ms
         _ => '?',        // other
     };
 
@@ -54,6 +59,7 @@ pub fn list_arg(args: &DirEntry) -> String {
     perms.push(if mode & 0o400 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
     perms.push(if mode & 0o100 != 0 { 'x' } else { '-' });
+
 
     // Group permissions
     perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
@@ -128,9 +134,13 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
     }
 
     for data in paths{
-        let p = data.as_ref().unwrap();
-        println!("{:?} :",p);
-        for it in data.unwrap(){
+        let readir =  match data{
+            Ok(v) => v,
+            _ => {println!("ls : cannot access : No such file or dir");
+            continue;
+        },
+        };
+        for it in readir{
             let mut elems = it.unwrap();
         if args.flags.contains(&"l".to_string()) {
             perms = list_arg(&mut elems);
