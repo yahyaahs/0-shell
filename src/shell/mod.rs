@@ -6,7 +6,7 @@ use crate::shell::parse::Cmd;
 pub mod exec;
 pub mod parse;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Shell {
     pub cwd: PathBuf, // Current working directory
     pub prompt: String,
@@ -14,7 +14,7 @@ pub struct Shell {
     pub state: State,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum State {
     Ready,
     Quote(String),

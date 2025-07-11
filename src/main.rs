@@ -1,12 +1,20 @@
 mod shell;
 use std::io::{Write, stdin, stdout};
+use std::ops::ShlAssign;
 use std::{env, path::PathBuf};
 
 use shell::*;
 
 use crate::shell::exec::{execution, get_builtins};
 use crate::shell::parse::{parse_command, scan_command};
+unsafe extern "C" {
+    fn signal(signal: i32, handler: extern "C" fn(i32));
+}
+extern "C" fn signal_handler(_signal: i32) {
+    print!("\n$");
+    stdout().flush().unwrap();
 
+}
 fn main() {
     let mut shell = Shell {
         cwd: env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
@@ -17,8 +25,12 @@ fn main() {
 
     let stdin = stdin();
     let mut input = String::new();
+        unsafe {
+        signal(2, signal_handler);
+    }
 
     loop {
+        println!("shell state {:#?}", shell.state);
         match &shell.state {
             State::Ready => {
                 shell.prompt = String::from(shell.cwd.to_str().unwrap());

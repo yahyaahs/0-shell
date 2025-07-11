@@ -6,7 +6,7 @@ unsafe extern "C" {
     fn signal(signal: i32, handler: extern "C" fn(i32));
 }
 extern "C" fn signal_handler(_signal: i32) {
-    println!("\nsignal, exit");
+    println!("\ncat signal, exit");
     std::process::exit(0);
 }
 pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
