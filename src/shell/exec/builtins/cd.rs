@@ -3,50 +3,36 @@ use super::*;
 use std::{env, path::PathBuf};
 
 pub fn cd(shell: &mut Shell, cmd: &Cmd) {
-    if cmd.args.len() == 0 {
-        let home = env::home_dir();
+    if cmd.args.is_empty() {
+        let home = env::var("HOME");
         match home {
-            Some(path) => shell.cwd = path,
-            None => println!("cd: no such file or directory: home"),
-        }
-    } else if cmd.args.len() == 1 {
-        let home_dir = match env::home_dir() {
-            Some(rv_path) => cmd.args[0].replace("~", rv_path.to_str().unwrap()),
-            None => "~".to_string(),
-        };
-        let new_path = if cmd.args[0].starts_with('~') {
-            match env::home_dir() {
-                Some(rv_path) => cmd.args[0].replace("~", rv_path.to_str().unwrap()),
-                None => {
-                    println!("cd: no such file or directory: {}", cmd.args[0]);
-                    return;
+            Ok(path) => {
+                if let Err(_) = env::set_current_dir(&path) {
+                    println!("cd: no such file or directory: {}", path);
+                } else {
+                    shell.cwd = PathBuf::from(path);
                 }
             }
+            Err(_) => println!("cd: HOME environment variable not set"),
+        }
+    } else if cmd.args.len() == 1 {
+        let target_path = PathBuf::from(&cmd.args[0]);
+
+        let final_path = if target_path.is_absolute() {
+            target_path
         } else {
-            cmd.args[0].clone()
+            shell.cwd.join(target_path)
         };
 
-        if new_path.starts_with('/') {
-            let data = env::set_current_dir(new_path.clone());
-            match data {
-                Ok(_) => shell.cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
-                Err(_) => println!(
-                    "cd: no such file or directory: {}",
-                    new_path.replace(&home_dir, "~")
-                ),
-            };
-        } else {
-            let relative_new_path = shell.cwd.join(new_path.clone());
-            let data = env::set_current_dir(&relative_new_path);
-            match data {
-                Ok(_) => shell.cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
-                Err(_) => println!(
-                    "cd: no such file or directory: {}",
-                    new_path.replace(&home_dir, "~")
-                ),
-            };
+        match env::set_current_dir(&final_path) {
+            Ok(_) => {
+                shell.cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+            }
+            Err(_) => {
+                println!("cd: no such file or directory: {}", cmd.args[0]);
+            }
         }
     } else {
-        println!("cd: args not suported: {}", cmd.args.join(" "));
+        println!("cd: too many arguments: {}", cmd.args.join(" "));
     }
 }

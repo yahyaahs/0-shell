@@ -174,14 +174,5 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
             println!("{}", output);
             output.clear();
         }
-        // if args.contains(&"l".to_string()){
-        //     for dots in paths_hidden{
-
-        //     }
-        // }
     }
-
-    // for item in output {
-    //     println!("{}", item);
-    // }
 }
