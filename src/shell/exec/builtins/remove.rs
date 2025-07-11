@@ -6,6 +6,7 @@ use std::{
     fs::{self, Metadata, metadata, remove_dir_all, remove_file},
     io,
 };
+
 use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn rm(_shell: &mut Shell, command: &Cmd) {
@@ -80,7 +81,6 @@ pub fn can_remove_directly(data_of_target: Metadata, path: &String) -> bool {
             path
         );
         io::stdout().flush().unwrap();
-        //flush the buffer after the print
 
         let mut response: String = String::new();
         let _ = io::stdin().read_line(&mut response);
