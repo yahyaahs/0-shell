@@ -4,7 +4,7 @@ use chrono::{DateTime, Local};
 use users::{get_group_by_gid, get_user_by_uid};
 
 use std::{
-    fs::{self, DirEntry},
+    fs::{self, DirEntry, read_link},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::PathBuf,
     time::{Duration, SystemTime},
@@ -23,14 +23,14 @@ pub enum Types {
 pub fn check_type(name: &DirEntry) -> Types {
     match name.metadata() {
         Ok(meta) => {
-            if meta.is_dir() {
-                return Types::Dir(name.file_name());
-            } else if meta.permissions().mode() & 0o111 != 0 {
+            if meta.is_symlink() {
+                return Types::Symlink(read_link(name.path()).unwrap().into_os_string());
+            } else if meta.permissions().mode() & 0o111 != 0 && meta.is_file() {
                 return Types::Executable(name.file_name());
             } else if meta.is_file() {
                 return Types::File(name.file_name());
-            } else if meta.is_symlink() {
-                return Types::Symlink(name.file_name());
+            } else if meta.is_dir() {
+                return Types::Dir(name.file_name());
             } else {
                 return Types::NotSupported;
             }
@@ -40,8 +40,10 @@ pub fn check_type(name: &DirEntry) -> Types {
 }
 
 pub fn list_arg(args: &DirEntry) -> String {
-    let mode = args.metadata().unwrap().permissions().mode();
-    println!("mode {} ", mode);
+    let mode = match args.metadata() {
+        Ok(meta) => meta.permissions().mode(),
+        Err(_) => std::process::exit(1),
+    };
     let file_type = match mode & 0o170000 {
         0o040000 => 'd', // directory
         0o100000 => '-', // regular file
@@ -56,31 +58,59 @@ pub fn list_arg(args: &DirEntry) -> String {
     let mut perms = String::new();
     perms.push(file_type);
 
+    // Special
+    let suid = mode & 0o4000 != 0;
+    let sgid = mode & 0o2000 != 0;
+    let sticky = mode & 0o1000 != 0;
+
     // User permissions
     perms.push(if mode & 0o400 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o100 != 0 { 'x' } else { '-' });
+    // setuid
+    perms.push(match (mode & 0o100 != 0, suid) {
+        (true, true) => 's',
+        (false, true) => 'S',
+        (true, false) => 'x',
+        (false, false) => '-',
+    });
 
     // Group permissions
     perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o010 != 0 { 'x' } else { '-' });
+    //setguid
+    perms.push(match (mode & 0o010 != 0, sgid) {
+        (true, true) => 's',
+        (false, true) => 'S',
+        (true, false) => 'x',
+        (false, false) => '-',
+    });
 
     // Others permissions
     perms.push(if mode & 0o004 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o002 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o001 != 0 { 'x' } else { '-' });
+    // sticky bit
+    perms.push(match (mode & 0o001 != 0, sticky) {
+        (true, true) => 't',
+        (false, true) => 'T',
+        (true, false) => 'x',
+        (false, false) => '-',
+    });
     perms
 }
 
 pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
-    let uid = args.metadata().unwrap().uid();
-    let gid = args.metadata().unwrap().gid();
-    let username = get_user_by_uid(uid)
-        .unwrap()
-        .name()
-        .to_string_lossy()
-        .to_string();
+    let uid = match args.metadata() {
+        Ok(meta) => meta.uid(),
+        Err(_) => std::process::exit(1),
+    };
+    let gid = match args.metadata() {
+        Ok(meta) => meta.gid(),
+        Err(_) => std::process::exit(1),
+    };
+    let username = match get_user_by_uid(uid) {
+        Some(u) => u.name().to_string_lossy().to_string(),
+        None => "None".to_string(),
+    };
     let group = match get_group_by_gid(gid) {
         Some(g) => g.name().to_string_lossy().to_string(),
         _ => "None".to_string(),
@@ -122,6 +152,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let mut perms = String::new();
     let mut username = String::new();
     let mut group = String::new();
+    let mut nlinks = 0;
     let mut size = 0 as u64;
     let mut date = String::new();
     let blue = "\x1b[34m";
@@ -145,9 +176,15 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
             let mut elems = it.unwrap();
             if args.flags.contains(&"l".to_string()) {
                 perms = list_arg(&mut elems);
-
+                nlinks = match elems.metadata() {
+                    Ok(meta) => meta.nlink(),
+                    Err(_) => 0,
+                };
                 (username, group) = get_group_and_user(&elems);
-                size = elems.metadata().unwrap().len();
+                size = match elems.metadata() {
+                    Ok(meta) => meta.len(),
+                    Err(_) => 0,
+                };
                 date = get_time(&elems);
             }
             match check_type(&elems) {
@@ -173,7 +210,24 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&format!("{}{}{}", green, name_str, reset));
                     }
                 }
-                Types::File(name) | Types::Symlink(name) => {
+
+                Types::Symlink(name) => {
+                    let name_str = name.to_string_lossy();
+                    if show {
+                        output.push_str(&format!(
+                            "{} -> {}",
+                            elems.path().to_string_lossy(),
+                            name_str
+                        ));
+                    } else if !name_str.starts_with('.') {
+                        output.push_str(&format!(
+                            "{} -> {}",
+                            elems.path().to_string_lossy(),
+                            name_str
+                        ));
+                    }
+                }
+                Types::File(name) => {
                     let name_str = name.to_string_lossy();
                     if show {
                         output.push_str(&name_str);
@@ -181,14 +235,14 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&name_str);
                     }
                 }
-                _ => {}
+                _ => (),
             }
             if args.flags.contains(&"l".to_string()) && !output.is_empty() {
                 println!(
                     "{}",
                     format!(
-                        "{} {} {} {:>5} {:>5} {}",
-                        perms, username, group, size, date, output
+                        "{} {} {} {} {:>5} {:>5} {}",
+                        perms, nlinks, username, group, size, date, output
                     )
                 );
                 output.clear();

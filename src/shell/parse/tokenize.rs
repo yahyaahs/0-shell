@@ -148,7 +148,7 @@ fn valid_flags(exec: &str, args: &Vec<String>) -> bool {
         "ls" => {
             args.iter()
                 .filter(|f| {
-                    **f != "l".to_string() && **f != "f".to_string() && **f != "a".to_string()
+                    **f != "l".to_string() && **f != "F".to_string() && **f != "a".to_string()
                 })
                 .collect::<Vec<&String>>()
                 .len()
