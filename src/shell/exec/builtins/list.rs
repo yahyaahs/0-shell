@@ -56,20 +56,42 @@ pub fn list_arg(args: &DirEntry) -> String {
     let mut perms = String::new();
     perms.push(file_type);
 
+    // Special
+    let suid = mode & 0o4000 != 0;
+    let sgid = mode & 0o2000 != 0;
+    let sticky = mode & 0o1000 != 0;
+
     // User permissions
     perms.push(if mode & 0o400 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o100 != 0 { 'x' } else { '-' });
+    // setuid
+    perms.push(match (mode & 0o100 != 0, suid) {
+        (true, true) => 's',
+        (false, true) => 'S',
+        (true, false) => 'x',
+        (false, false) => '-',
+    });
 
     // Group permissions
     perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o010 != 0 { 'x' } else { '-' });
+    perms.push(match (mode & 0o010 != 0, sgid) {
+        (true, true) => 's',
+        (false, true) => 'S',
+        (true, false) => 'x',
+        (false, false) => '-',
+    });
 
     // Others permissions
     perms.push(if mode & 0o004 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o002 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o001 != 0 { 'x' } else { '-' });
+    // sticky bit
+    perms.push(match (mode & 0o001 != 0, sticky) {
+        (true, true) => 't',
+        (false, true) => 'T',
+        (true, false) => 'x',
+        (false, false) => '-',
+    });
     perms
 }
 
