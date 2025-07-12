@@ -25,7 +25,7 @@ pub fn check_type(name: &DirEntry) -> Types {
         Ok(meta) => {
             if meta.is_symlink() {
                 return Types::Symlink(read_link(name.path()).unwrap().into_os_string());
-            } else if meta.permissions().mode() & 0o111 != 0 {
+            } else if meta.permissions().mode() & 0o111 != 0 && meta.is_file() {
                 return Types::Executable(name.file_name());
             } else if meta.is_file() {
                 return Types::File(name.file_name());
@@ -194,7 +194,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&colored);
                     }
                 }
-                Types::Executable(name) => {
+                Types::Executable(name)  => {
                     let name_str = name.to_string_lossy();
                     if show {
                         output.push_str(&format!("{}{}{}", green, name_str, reset));
