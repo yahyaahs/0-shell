@@ -40,7 +40,10 @@ pub fn check_type(name: &DirEntry) -> Types {
 }
 
 pub fn list_arg(args: &DirEntry) -> String {
-    let mode = args.metadata().unwrap().permissions().mode();
+    let mode = match args.metadata(){
+        Ok(meta) => meta.permissions().mode(),
+        Err(_) => std::process::exit(1),
+    };
     let file_type = match mode & 0o170000 {
         0o040000 => 'd', // directory
         0o100000 => '-', // regular file
@@ -95,13 +98,18 @@ pub fn list_arg(args: &DirEntry) -> String {
 }
 
 pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
-    let uid = args.metadata().unwrap().uid();
-    let gid = args.metadata().unwrap().gid();
-    let username = get_user_by_uid(uid)
-        .unwrap()
-        .name()
-        .to_string_lossy()
-        .to_string();
+    let uid = match args.metadata(){
+        Ok(meta) => meta.uid(),
+        Err(_) => std::process::exit(1),
+    };
+    let gid = match args.metadata(){
+        Ok(meta) => meta.gid(),
+        Err(_) => std::process::exit(1),
+    };
+    let username = match get_user_by_uid(uid){
+        Some(u) => u.name().to_string_lossy().to_string(),
+        None => "None".to_string(),
+    };
     let group = match get_group_by_gid(gid) {
         Some(g) => g.name().to_string_lossy().to_string(),
         _ => "None".to_string(),
