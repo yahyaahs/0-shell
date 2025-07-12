@@ -4,6 +4,7 @@ use std::{
     env,
     io::{Write, stdin, stdout},
     path::PathBuf,
+    io
 };
 
 use shell::{
@@ -17,9 +18,33 @@ unsafe extern "C" {
 }
 
 extern "C" fn signal_handler(_signal: i32) {
-    stdout().flush().unwrap();
-    print!("\n{}", display_prompt());
-    stdout().flush().unwrap();
+    // match stdout().flush(){
+    //     Ok(_) => {}
+    //     Err(err) => std::process::exit(1),
+    // };
+    // print!("\n{}", display_prompt());
+    // match stdout().flush(){
+    //     Ok(_) => {}
+    //     Err(err) => std::process::exit(1),
+    // };
+    write_("\n");
+    write_(&display_prompt());
+}
+
+fn write_(s: &str) {
+    let mut stdout = io::stdout();
+    match stdout.write_all(s.as_bytes()) {
+        Ok(_) => {}
+        Err(e) => {
+            std::process::exit(1);
+        }
+    }
+    match stdout.flush() {
+        Ok(_) => {}
+        Err(e) => {
+            std::process::exit(1);
+        }
+    };
 }
 
 fn main() {
@@ -39,19 +64,16 @@ fn main() {
     loop {
         match &shell.state {
             State::Ready => {
-                print!("{}", display_prompt());
-                stdout().flush().unwrap();
+                write_(&display_prompt());
                 input = String::new();
             }
             State::Quote(typ) => {
                 print!("{}> ", typ);
-                shell.state = State::Ready;
-                stdout().flush().unwrap();
+                let temp_buffer = typ.to_string()+ ">";
+                write_(&temp_buffer);
             }
             State::BackNewLine => {
-                print!("> ");
-                shell.state = State::Ready;
-                stdout().flush().unwrap();
+                write_(">");
             }
         };
 
@@ -60,7 +82,7 @@ fn main() {
             match stdin.read_line(&mut temp_buffer) {
                 Ok(byt) => {
                     if byt == 0 {
-                        println!("\nexiting shell...");
+                        write_("\nexiting shell...\n");
                         return;
                     }
                 }
@@ -75,7 +97,7 @@ fn main() {
                         return;
                     }
                 }
-                Err(err) => println!("shell error: {}", err.to_string()),
+                Err(err) => eprintln!("shell error: {}", err.to_string()),
             };
         }
 
