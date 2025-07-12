@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 
 pub use builtins::{
-    base::{echo, exit, pwd, touch},
+    base::{echo, exit, help, pwd, touch},
     cat, cd, copy, list, remove,
 };
 
@@ -51,6 +51,7 @@ pub fn execution(shell: &mut Shell, command: Cmd) {
 
 pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
     HashMap::from([
+        ("help".to_string(), help as fn(&mut Shell, &Cmd)),
         ("exit".to_string(), exit as fn(&mut Shell, &Cmd)),
         ("echo".to_string(), echo as fn(&mut Shell, &Cmd)),
         ("pwd".to_string(), pwd as fn(&mut Shell, &Cmd)),
