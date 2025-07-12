@@ -4,7 +4,7 @@ use chrono::{DateTime, Local};
 use users::{get_group_by_gid, get_user_by_uid};
 
 use std::{
-    fs::{self, DirEntry},
+    fs::{self, read_link, symlink_metadata, DirEntry},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::PathBuf,
     time::{Duration, SystemTime},
@@ -23,14 +23,14 @@ pub enum Types {
 pub fn check_type(name: &DirEntry) -> Types {
     match name.metadata() {
         Ok(meta) => {
-            if meta.is_dir() {
-                return Types::Dir(name.file_name());
+            if meta.is_symlink() {
+                return Types::Symlink(read_link(name.path()).unwrap().into_os_string());
             } else if meta.permissions().mode() & 0o111 != 0 {
                 return Types::Executable(name.file_name());
             } else if meta.is_file() {
                 return Types::File(name.file_name());
-            } else if meta.is_symlink() {
-                return Types::Symlink(name.file_name());
+            } else if meta.is_dir() {
+                return Types::Dir(name.file_name());
             } else {
                 return Types::NotSupported;
             }
@@ -41,7 +41,6 @@ pub fn check_type(name: &DirEntry) -> Types {
 
 pub fn list_arg(args: &DirEntry) -> String {
     let mode = args.metadata().unwrap().permissions().mode();
-    println!("mode {} ", mode);
     let file_type = match mode & 0o170000 {
         0o040000 => 'd', // directory
         0o100000 => '-', // regular file
@@ -195,7 +194,16 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&format!("{}{}{}", green, name_str, reset));
                     }
                 }
-                Types::File(name) | Types::Symlink(name) => {
+           
+                Types::Symlink(name) => {
+                    let name_str = name.to_string_lossy();
+                    if show {
+                        output.push_str(&format!("{} -> {}", elems.path().to_string_lossy() , name_str));
+                    } else if !name_str.starts_with('.') {
+                        output.push_str(&format!("{} -> {}", elems.path().to_string_lossy(), name_str));
+                    }
+                },
+                Types::File(name)  => {
                     let name_str = name.to_string_lossy();
                     if show {
                         output.push_str(&name_str);
@@ -203,7 +211,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&name_str);
                     }
                 }
-                _ => {}
+                _=>(),
             }
             if args.flags.contains(&"l".to_string()) && !output.is_empty() {
                 println!(
