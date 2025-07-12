@@ -11,7 +11,9 @@ unsafe extern "C" {
 }
 
 extern "C" fn signal_handler(_signal: i32) {
-    //sig action todo!!!!!
+    stdout().flush().unwrap();
+    print!("\n$ ");
+    stdout().flush().unwrap();
 }
 
 fn main() {

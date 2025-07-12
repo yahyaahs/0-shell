@@ -1,6 +1,6 @@
 use super::*;
 
-use std::{env, path::PathBuf};
+use std::{env, io::ErrorKind, path::PathBuf};
 
 pub fn cd(shell: &mut Shell, cmd: &Cmd) {
     if cmd.args.is_empty() {
@@ -13,7 +13,7 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
                     shell.cwd = PathBuf::from(path);
                 }
             }
-            Err(_) => println!("cd: HOME environment variable not set"),
+            Err(_) => println!("cd: cannot find HOME directory set"),
         }
     } else if cmd.args.len() == 1 {
         let target_path = PathBuf::from(&cmd.args[0]);
@@ -24,12 +24,25 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
             shell.cwd.join(target_path)
         };
 
+        if final_path.is_file() {
+            println!("cd: not a directory: {}", cmd.args[0]);
+            return;
+        }
+
         match env::set_current_dir(&final_path) {
             Ok(_) => {
                 shell.cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
             }
-            Err(_) => {
-                println!("cd: no such file or directory: {}", cmd.args[0]);
+            Err(err) => {
+                match err.kind() {
+                    ErrorKind::PermissionDenied => {
+                        println!("cd: {}: Permission denied", cmd.args[0])
+                    }
+                    ErrorKind::NotFound => {
+                        println!("cd: {}: No such file or directory", cmd.args[0])
+                    }
+                    _ => println!("cd: undefined error"),
+                };
             }
         }
     } else {
