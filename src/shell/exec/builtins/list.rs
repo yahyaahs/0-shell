@@ -4,7 +4,7 @@ use chrono::{DateTime, Local};
 use users::{get_group_by_gid, get_user_by_uid};
 
 use std::{
-    fs::{self, read_link, symlink_metadata, DirEntry},
+    fs::{self, DirEntry, read_link},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::PathBuf,
     time::{Duration, SystemTime},
@@ -40,7 +40,7 @@ pub fn check_type(name: &DirEntry) -> Types {
 }
 
 pub fn list_arg(args: &DirEntry) -> String {
-    let mode = match args.metadata(){
+    let mode = match args.metadata() {
         Ok(meta) => meta.permissions().mode(),
         Err(_) => std::process::exit(1),
     };
@@ -99,15 +99,15 @@ pub fn list_arg(args: &DirEntry) -> String {
 }
 
 pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
-    let uid = match args.metadata(){
+    let uid = match args.metadata() {
         Ok(meta) => meta.uid(),
         Err(_) => std::process::exit(1),
     };
-    let gid = match args.metadata(){
+    let gid = match args.metadata() {
         Ok(meta) => meta.gid(),
         Err(_) => std::process::exit(1),
     };
-    let username = match get_user_by_uid(uid){
+    let username = match get_user_by_uid(uid) {
         Some(u) => u.name().to_string_lossy().to_string(),
         None => "None".to_string(),
     };
@@ -181,7 +181,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                     Err(_) => 0,
                 };
                 (username, group) = get_group_and_user(&elems);
-                size = match elems.metadata(){
+                size = match elems.metadata() {
                     Ok(meta) => meta.len(),
                     Err(_) => 0,
                 };
@@ -202,7 +202,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&colored);
                     }
                 }
-                Types::Executable(name)  => {
+                Types::Executable(name) => {
                     let name_str = name.to_string_lossy();
                     if show {
                         output.push_str(&format!("{}{}{}", green, name_str, reset));
@@ -210,16 +210,24 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&format!("{}{}{}", green, name_str, reset));
                     }
                 }
-           
+
                 Types::Symlink(name) => {
                     let name_str = name.to_string_lossy();
                     if show {
-                        output.push_str(&format!("{} -> {}", elems.path().to_string_lossy() , name_str));
+                        output.push_str(&format!(
+                            "{} -> {}",
+                            elems.path().to_string_lossy(),
+                            name_str
+                        ));
                     } else if !name_str.starts_with('.') {
-                        output.push_str(&format!("{} -> {}", elems.path().to_string_lossy(), name_str));
+                        output.push_str(&format!(
+                            "{} -> {}",
+                            elems.path().to_string_lossy(),
+                            name_str
+                        ));
                     }
-                },
-                Types::File(name)  => {
+                }
+                Types::File(name) => {
                     let name_str = name.to_string_lossy();
                     if show {
                         output.push_str(&name_str);
@@ -227,14 +235,14 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                         output.push_str(&name_str);
                     }
                 }
-                _=>(),
+                _ => (),
             }
             if args.flags.contains(&"l".to_string()) && !output.is_empty() {
                 println!(
                     "{}",
                     format!(
                         "{} {} {} {} {:>5} {:>5} {}",
-                        perms,nlinks, username, group, size, date, output
+                        perms, nlinks, username, group, size, date, output
                     )
                 );
                 output.clear();
