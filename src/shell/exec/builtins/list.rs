@@ -77,6 +77,7 @@ pub fn list_arg(args: &DirEntry) -> String {
     // Group permissions
     perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
+    //setguid
     perms.push(match (mode & 0o010 != 0, sgid) {
         (true, true) => 's',
         (false, true) => 'S',
@@ -151,6 +152,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let mut perms = String::new();
     let mut username = String::new();
     let mut group = String::new();
+    let mut nlinks = 0;
     let mut size = 0 as u64;
     let mut date = String::new();
     let blue = "\x1b[34m";
@@ -174,9 +176,15 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
             let mut elems = it.unwrap();
             if args.flags.contains(&"l".to_string()) {
                 perms = list_arg(&mut elems);
-
+                nlinks = match elems.metadata() {
+                    Ok(meta) => meta.nlink(),
+                    Err(_) => 0,
+                };
                 (username, group) = get_group_and_user(&elems);
-                size = elems.metadata().unwrap().len();
+                size = match elems.metadata(){
+                    Ok(meta) => meta.len(),
+                    Err(_) => 0,
+                };
                 date = get_time(&elems);
             }
             match check_type(&elems) {
@@ -225,8 +233,8 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                 println!(
                     "{}",
                     format!(
-                        "{} {} {} {:>5} {:>5} {}",
-                        perms, username, group, size, date, output
+                        "{} {} {} {} {:>5} {:>5} {}",
+                        perms,nlinks, username, group, size, date, output
                     )
                 );
                 output.clear();
