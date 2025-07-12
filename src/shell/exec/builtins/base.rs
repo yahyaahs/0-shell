@@ -1,3 +1,5 @@
+use std::{fs::OpenOptions, io::ErrorKind, path::PathBuf};
+
 use super::*;
 
 pub fn exit(_shell: &mut Shell, cmd: &Cmd) {
@@ -28,4 +30,27 @@ pub fn pwd(shell: &mut Shell, _cmd: &Cmd) {
             .to_str()
             .unwrap_or("cannot find current directory")
     );
+}
+
+pub fn touch(_shell: &mut Shell, cmd: &Cmd) {
+    if cmd.args.is_empty() {
+        println!("touch: missing file operand");
+        return;
+    }
+
+    for file in &cmd.args {
+        let path = PathBuf::from(file);
+
+        match OpenOptions::new().create(true).append(true).open(&path) {
+            Ok(_) => {}
+            Err(err) => match err.kind() {
+                ErrorKind::PermissionDenied => println!("touch: {}: Permission denied", file),
+                ErrorKind::NotFound => {
+                    println!("touch: cannot touch {}: No such file or directory", file)
+                }
+                ErrorKind::IsADirectory => println!("touch: {}: Is a directory", file),
+                _ => println!("touch: {}: {}", file, err),
+            },
+        }
+    }
 }
