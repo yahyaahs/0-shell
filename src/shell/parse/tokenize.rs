@@ -1,8 +1,7 @@
-use chrono::Local;
+use super::*;
 
 use crate::shell::State;
-
-use super::*;
+use chrono::Local;
 
 pub fn scan_command(input: &str) -> Option<State> {
     if input.ends_with("\\") && !input.ends_with("\\\\") {

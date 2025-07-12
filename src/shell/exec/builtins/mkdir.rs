@@ -1,6 +1,6 @@
-use crate::shell::{Shell, parse::Cmd};
-use io::*;
-use std::{fs::create_dir, io};
+use super::*;
+
+use std::{fs::create_dir, io::ErrorKind};
 
 pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
     for f in &command.args {

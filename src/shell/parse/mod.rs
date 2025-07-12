@@ -2,7 +2,7 @@ mod tokenize;
 
 pub use tokenize::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Cmd {
     pub exec: String,
     pub flags: Vec<String>,

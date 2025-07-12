@@ -1,13 +1,14 @@
 use super::*;
-use crate::shell::Shell;
+
 use chrono::{DateTime, Local};
-use std::path::PathBuf;
+use users::{get_group_by_gid, get_user_by_uid};
+
 use std::{
     fs::{self, DirEntry},
     os::unix::fs::{MetadataExt, PermissionsExt},
+    path::PathBuf,
     time::{Duration, SystemTime},
 };
-use users::{get_group_by_gid, get_user_by_uid};
 
 #[derive(Debug)]
 pub enum Types {
@@ -60,7 +61,6 @@ pub fn list_arg(args: &DirEntry) -> String {
     perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
     perms.push(if mode & 0o100 != 0 { 'x' } else { '-' });
 
-
     // Group permissions
     perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
@@ -109,10 +109,10 @@ pub fn get_time(args: &DirEntry) -> String {
 }
 pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let mut paths = Vec::new();
-    if args.args.is_empty(){
+    if args.args.is_empty() {
         paths.push(fs::read_dir("."));
-    } else{
-        for item in &args.args{
+    } else {
+        for item in &args.args {
             paths.push(fs::read_dir(item));
         }
     }
@@ -133,69 +133,69 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
         paths_hidden.push(PathBuf::from(".."));
     }
 
-    for data in paths{
-        let readir =  match data{
+    for data in paths {
+        let readir = match data {
             Ok(v) => v,
-            _ => {println!("ls : cannot access : No such file or dir");
-            continue;
-        },
+            _ => {
+                println!("ls : cannot access : No such file or dir");
+                continue;
+            }
         };
-        for it in readir{
+        for it in readir {
             let mut elems = it.unwrap();
-        if args.flags.contains(&"l".to_string()) {
-            perms = list_arg(&mut elems);
+            if args.flags.contains(&"l".to_string()) {
+                perms = list_arg(&mut elems);
 
-            (username, group) = get_group_and_user(&elems);
-            size = elems.metadata().unwrap().len();
-            date = get_time(&elems);
-        }
-        match check_type(&elems) {
-            Types::Dir(name) => {
-                let name_str = name.to_string_lossy();
-                let display = if classify {
-                    format!("{}/", name_str)
-                } else {
-                    name_str.to_string()
-                };
-                let colored = format!("{}{}{}", blue, display, reset);
-                if show {
-                    output.push_str(&colored);
-                } else if !name_str.starts_with('.') {
-                    output.push_str(&colored);
-                }
+                (username, group) = get_group_and_user(&elems);
+                size = elems.metadata().unwrap().len();
+                date = get_time(&elems);
             }
-            Types::Executable(name) => {
-                let name_str = name.to_string_lossy();
-                if show {
-                    output.push_str(&format!("{}{}{}", green, name_str, reset));
-                } else if !name_str.starts_with('.') {
-                    output.push_str(&format!("{}{}{}", green, name_str, reset));
+            match check_type(&elems) {
+                Types::Dir(name) => {
+                    let name_str = name.to_string_lossy();
+                    let display = if classify {
+                        format!("{}/", name_str)
+                    } else {
+                        name_str.to_string()
+                    };
+                    let colored = format!("{}{}{}", blue, display, reset);
+                    if show {
+                        output.push_str(&colored);
+                    } else if !name_str.starts_with('.') {
+                        output.push_str(&colored);
+                    }
                 }
-            }
-            Types::File(name) | Types::Symlink(name) => {
-                let name_str = name.to_string_lossy();
-                if show {
-                    output.push_str(&name_str);
-                } else if !name_str.starts_with('.') {
-                    output.push_str(&name_str);
+                Types::Executable(name) => {
+                    let name_str = name.to_string_lossy();
+                    if show {
+                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                    } else if !name_str.starts_with('.') {
+                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                    }
                 }
+                Types::File(name) | Types::Symlink(name) => {
+                    let name_str = name.to_string_lossy();
+                    if show {
+                        output.push_str(&name_str);
+                    } else if !name_str.starts_with('.') {
+                        output.push_str(&name_str);
+                    }
+                }
+                _ => {}
             }
-            _ => {}
+            if args.flags.contains(&"l".to_string()) && !output.is_empty() {
+                println!(
+                    "{}",
+                    format!(
+                        "{} {} {} {:>5} {:>5} {}",
+                        perms, username, group, size, date, output
+                    )
+                );
+                output.clear();
+            } else if !output.is_empty() {
+                println!("{}", output);
+                output.clear();
+            }
         }
-        if args.flags.contains(&"l".to_string()) && !output.is_empty() {
-            println!(
-                "{}",
-                format!(
-                    "{} {} {} {:>5} {:>5} {}",
-                    perms, username, group, size, date, output
-                )
-            );
-            output.clear();
-        } else if !output.is_empty() {
-            println!("{}", output);
-            output.clear();
-        }
-        }
-        
     }
 }

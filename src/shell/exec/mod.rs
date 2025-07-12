@@ -7,11 +7,9 @@ use crate::shell::parse::Cmd;
 use std::collections::HashMap;
 use std::ffi::OsString;
 
-
-use builtins::remove;
 pub use builtins::{
     base::{echo, exit, pwd},
-    cat, cd, list,
+    cat, cd, copy, list, remove,
 };
 
 unsafe extern "C" {
@@ -61,5 +59,6 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
         ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
         ("rm".to_string(), remove::rm as fn(&mut Shell, &Cmd)),
+        ("cp".to_string(), copy::cp as fn(&mut Shell, &Cmd)),
     ])
 }
