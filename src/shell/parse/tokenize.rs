@@ -1,3 +1,5 @@
+use chrono::Local;
+
 use crate::shell::State;
 
 use super::*;
@@ -60,7 +62,7 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
                 .map(|c| c.to_string())
                 .collect();
 
-            if valid_flags(&new_vec) {
+            if valid_flags(&exec, &new_vec) {
                 new_vec.iter().for_each(|fl| flags.push(fl.to_owned()));
             } else {
                 return Err(format!(
@@ -142,6 +144,37 @@ fn tokenize(input: &str) -> Vec<String> {
     tokens
 }
 
-fn valid_flags(_args: &Vec<String>) -> bool {
-    true
+fn valid_flags(exec: &str, args: &Vec<String>) -> bool {
+    match exec {
+        "ls" => {
+            args.iter()
+                .filter(|f| {
+                    **f != "l".to_string() && **f != "f".to_string() && **f != "a".to_string()
+                })
+                .collect::<Vec<&String>>()
+                .len()
+                == 0
+        }
+        "rm" => {
+            args.iter()
+                .filter(|f| **f != "r".to_string())
+                .collect::<Vec<&String>>()
+                .len()
+                == 0
+        }
+        _ => args.len() == 0,
+    }
+}
+
+pub fn display_prompt() -> String {
+    let time = Local::now().format("%H:%M:%S");
+
+    format!(
+        "{magenta}╭─[{white}{blue}{time}{reset}{magenta}]{reset}\n{magenta}╰─» {reset}",
+        magenta = "\x1b[36m",
+        white = "\x1b[1;37m",
+        blue = "\x1b[94m",
+        reset = "\x1b[0m",
+        time = time
+    )
 }

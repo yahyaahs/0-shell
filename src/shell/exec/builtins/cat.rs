@@ -10,7 +10,6 @@ unsafe extern "C" {
 }
 
 extern "C" fn signal_handler(_signal: i32) {
-    println!();
     std::process::exit(0);
 }
 

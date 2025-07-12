@@ -1,22 +1,32 @@
 mod shell;
-use std::io::{Write, stdin, stdout};
-use std::{env, path::PathBuf};
 
-use shell::*;
+use std::{
+    env,
+    io::{Write, stdin, stdout},
+    path::PathBuf,
+};
 
-use crate::shell::exec::{execution, get_builtins};
-use crate::shell::parse::{parse_command, scan_command};
+use shell::{
+    Shell, State,
+    exec::{execution, get_builtins},
+    parse::{display_prompt, parse_command, scan_command},
+};
+
 unsafe extern "C" {
     fn signal(signal: i32, handler: extern "C" fn(i32));
 }
 
 extern "C" fn signal_handler(_signal: i32) {
     stdout().flush().unwrap();
-    print!("\n$ ");
+    print!("\n{}", display_prompt());
     stdout().flush().unwrap();
 }
 
 fn main() {
+    unsafe {
+        signal(2, signal_handler);
+    }
+
     let mut shell = Shell {
         cwd: env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
         builtins: get_builtins(),
@@ -25,14 +35,11 @@ fn main() {
 
     let stdin = stdin();
     let mut input = String::new();
-    unsafe {
-        signal(2, signal_handler);
-    }
 
     loop {
         match &shell.state {
             State::Ready => {
-                print!("$ ");
+                print!("{}", display_prompt());
                 stdout().flush().unwrap();
                 input = String::new();
             }
