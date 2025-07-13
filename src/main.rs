@@ -2,9 +2,8 @@ mod shell;
 
 use std::{
     env,
-    io::{Write, stdin},
+    io::{ stdin},
     path::PathBuf,
-    io
 };
 
 use shell::{
