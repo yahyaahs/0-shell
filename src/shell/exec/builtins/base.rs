@@ -12,29 +12,29 @@ pub fn exit(_shell: &mut Shell, cmd: &Cmd) {
             std::process::exit(code)
         }
         Err(_) => {
-            println!("exit {}: undefined code", cmd.args[0]);
+            write_(&format!("exit {}: undefined code\n", cmd.args[0]));
             return;
         }
     };
 }
 
 pub fn echo(_shell: &mut Shell, cmd: &Cmd) {
-    println!("{}", cmd.args.join(" "));
+    write_(&format!("{}\n", cmd.args.join(" ")));
 }
 
 pub fn pwd(shell: &mut Shell, _cmd: &Cmd) {
-    println!(
-        "{}",
+    write_(&format!(
+        "{}\n",
         shell
             .cwd
             .to_str()
             .unwrap_or("cannot find current directory")
-    );
+    ));
 }
 
 pub fn touch(_shell: &mut Shell, cmd: &Cmd) {
     if cmd.args.is_empty() {
-        println!("touch: missing file operand");
+        write_("touch: missing file operand\n");
         return;
     }
 
@@ -44,12 +44,12 @@ pub fn touch(_shell: &mut Shell, cmd: &Cmd) {
         match OpenOptions::new().create(true).append(true).open(&path) {
             Ok(_) => {}
             Err(err) => match err.kind() {
-                ErrorKind::PermissionDenied => println!("touch: {}: Permission denied", file),
+                ErrorKind::PermissionDenied => write_(&format!("touch: {}: Permission denied\n", file)),
                 ErrorKind::NotFound => {
-                    println!("touch: cannot touch {}: No such file or directory", file)
+                    write_(&format!("touch: cannot touch {}: No such file or directory\n", file))
                 }
-                ErrorKind::IsADirectory => println!("touch: {}: Is a directory", file),
-                _ => println!("touch: {}: {}", file, err),
+                ErrorKind::IsADirectory => write_(&format!("touch: {}: Is a directory\n", file)),
+                _ => write_(&format!("touch: {}: {}\n", file, err)),
             },
         }
     }
@@ -60,22 +60,22 @@ pub fn help(_shell: &mut Shell, cmd: &Cmd) {
 
     match cmd.args.len() {
         0 => {
-            println!("Usage: help [command]");
-            println!("Supported commands:");
+            write_("Usage: help [command]\n");
+            write_("Supported commands:\n");
             for command in help_texts.keys() {
-                println!("\t{}", command);
+                write_(&format!("\t{}\n", command));
             }
         }
         1 => {
             let command = &cmd.args[0];
             match help_texts.get(command.as_str()) {
-                Some(text) => println!("{}", text),
-                None => println!("help: no help topics match '{}'", command),
+                Some(text) => write_(&format!("{}\n", text)),
+                None => write_(&format!("help: no help topics match '{}'\n", command)),
             }
         }
         _ => {
-            println!("help: too many arguments");
-            println!("Usage: help [command]");
+            write_("help: too many arguments\n");
+            write_("Usage: help [command]\n");
         }
     }
 }

@@ -8,10 +8,10 @@ use std::{
 
 pub fn cp(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() < 2 {
-        println!("usage: cp source_file target_file\n       cp source_file ... target_directory");
+        write_("usage: cp source_file target_file\n       cp source_file ... target_directory\n");
         return;
     }
-    println!("{:?}", command);
+    write_(&format!("{:?}\n", command));
     let sources = command.args[0..command.args.len() - 1].to_vec();
     let target = &command.args[command.args.len() - 1];
     if sources.len() == 1 {
@@ -20,27 +20,27 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
         let data_of_target = match metadata(target) {
             Ok(data) => data,
             Err(error) => {
-                println!("{:?}", error);
+                write_(&format!("{:?}\n", error));
                 return;
             }
         };
         if !data_of_target.is_dir() {
-            println!("{}: {} {}", command.exec, target, "is not a directory");
+            write_(&format!("{}: {} {}\n", command.exec, target, "is not a directory"));
             return;
         }
         for source in &sources {
             let data_of_source = match metadata(source) {
                 Ok(data) => data,
                 Err(error) => {
-                    println!("{:?}", error);
+                    write_(&format!("{:?}\n", error));
                     return;
                 }
             };
             if data_of_source.is_dir() {
-                println!(
-                    "{}: {} {}",
+                write_(&format!(
+                    "{}: {} {}\n",
                     command.exec, source, "is a directory (not copied)."
-                );
+                ));
                 continue;
             }
             let content: String = match fs::read_to_string(source) {
@@ -58,21 +58,21 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
 
 pub fn one_source(source: &String, command: &String, target: &String) {
     if source == target {
-        println!(
-            "{}: {} and {} {}",
+        write_(&format!(
+            "{}: {} and {} {}\n",
             command, source, target, "are identical (not copied)."
-        );
+        ));
         return;
     }
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
         Err(error) => {
-            println!("{:?}", error);
+            write_(&format!("{:?}\n", error));
             return;
         }
     };
     if data_of_source.is_dir() {
-        println!("{}: {} {}", command, source, "is a directory (not copied).");
+        write_(&format!("{}: {} {}\n", command, source, "is a directory (not copied)."));
         return;
     }
     // println!("{:?}", data_of_source);
@@ -96,7 +96,7 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         Ok(data) => data,
         Err(error) => match error.kind() {
             ErrorKind::PermissionDenied => {
-                println!("{}: {}: {}", command, source, "Permission denied");
+                write_(&format!("{}: {}: {}\n", command, source, "Permission denied"));
                 return;
             }
             _ => {
@@ -124,11 +124,11 @@ pub fn create_file(path: &String, content: &String, source: &String, command: &S
                 }
             }
             ErrorKind::PermissionDenied => {
-                println!("{}: {}: {}", command, path, "Permission denied");
+                write_(&format!("{}: {}: {}\n", command, path, "Permission denied"));
                 return;
             }
             _ => {
-                println!("{:?}", error);
+                write_(&format!("{:?}\n", error));
             }
         },
     };
@@ -139,7 +139,7 @@ pub fn copy_perms(source: &String, target: &String) {
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
         Err(error) => {
-            println!("{:?}", error);
+            write_(&format!("{:?}\n", error));
             return;
         }
     };
@@ -147,7 +147,7 @@ pub fn copy_perms(source: &String, target: &String) {
     let data_of_target = match metadata(&target) {
         Ok(data) => data,
         Err(error) => {
-            println!("{:?}", error);
+            write_(&format!("{:?}\n", error));
             return;
         }
     };

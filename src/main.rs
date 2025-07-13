@@ -2,7 +2,7 @@ mod shell;
 
 use std::{
     env,
-    io::{Write, stdin, stdout},
+    io::{Write, stdin},
     path::PathBuf,
     io
 };
@@ -12,6 +12,8 @@ use shell::{
     exec::{execution, get_builtins},
     parse::{display_prompt, parse_command, scan_command},
 };
+
+use crate::shell::exec::builtins::write_;
 
 unsafe extern "C" {
     fn signal(signal: i32, handler: extern "C" fn(i32));
@@ -29,22 +31,6 @@ extern "C" fn signal_handler(_signal: i32) {
     // };
     write_("\n");
     write_(&display_prompt());
-}
-
-fn write_(s: &str) {
-    let mut stdout = io::stdout();
-    match stdout.write_all(s.as_bytes()) {
-        Ok(_) => {}
-        Err(e) => {
-            std::process::exit(1);
-        }
-    }
-    match stdout.flush() {
-        Ok(_) => {}
-        Err(e) => {
-            std::process::exit(1);
-        }
-    };
 }
 
 fn main() {
@@ -68,9 +54,7 @@ fn main() {
                 input = String::new();
             }
             State::Quote(typ) => {
-                print!("{}> ", typ);
-                let temp_buffer = typ.to_string()+ ">";
-                write_(&temp_buffer);
+                write_(&format!("{}> ", typ));
             }
             State::BackNewLine => {
                 write_(">");
@@ -86,18 +70,18 @@ fn main() {
                         return;
                     }
                 }
-                Err(err) => println!("shell error: {}", err.to_string()),
+                Err(err) => write_(&format!("shell error: {}\n", err.to_string())),
             };
             input = format!("{}{}", input, temp_buffer);
         } else {
             match stdin.read_line(&mut input) {
                 Ok(byt) => {
                     if byt == 0 {
-                        println!("\nexiting shell...");
+                        write_("\nexiting shell...\n");
                         return;
                     }
                 }
-                Err(err) => eprintln!("shell error: {}", err.to_string()),
+                Err(err) => write_(&format!("shell error: {}\n", err.to_string())),
             };
         }
 
@@ -109,7 +93,7 @@ fn main() {
                 Ok(cmd) => {
                     execution(&mut shell, cmd);
                 }
-                Err(err) => print!("{err}"),
+                Err(err) => write_(&format!("{}", err)),
             },
         };
     }
