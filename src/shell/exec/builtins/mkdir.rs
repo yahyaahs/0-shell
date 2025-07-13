@@ -8,16 +8,16 @@ pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
         create_dir(folder_name).unwrap_or_else(|error| match error.kind() {
             ErrorKind::NotFound => {
                 let not_found: Vec<&str> = f.split("/").collect();
-                println!(
-                    "{}: {}: {}",
+                write_(&format!(
+                    "{}: {}: {}\n",
                     command.exec, not_found[0], "No such file or directory"
-                );
+                ));
             }
             ErrorKind::AlreadyExists => {
                 let already_exist: Vec<&str> = f.split("/").collect();
-                println!("{}: {}: {}", command.exec, already_exist[0], "File exists");
+                write_(&format!("{}: {}: {}\n", command.exec, already_exist[0], "File exists"));
             }
-            _ => println!("{}: {}", command.exec, error),
+            _ => write_(&format!("{}: {}\n", command.exec, error)),
         })
     }
 }

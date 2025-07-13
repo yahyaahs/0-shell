@@ -8,12 +8,12 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
         match home {
             Ok(path) => {
                 if let Err(_) = env::set_current_dir(&path) {
-                    println!("cd: no such file or directory: {}", path);
+                    write_(&format!("cd: no such file or directory: {}\n", path));
                 } else {
                     shell.cwd = PathBuf::from(path);
                 }
             }
-            Err(_) => println!("cd: cannot find HOME directory set"),
+            Err(_) => write_("cd: cannot find HOME directory set\n"),
         }
     } else if cmd.args.len() == 1 {
         let target_path = PathBuf::from(&cmd.args[0]);
@@ -25,7 +25,7 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
         };
 
         if final_path.is_file() {
-            println!("cd: not a directory: {}", cmd.args[0]);
+            write_(&format!("cd: not a directory: {}\n", cmd.args[0]));
             return;
         }
 
@@ -36,16 +36,16 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
             Err(err) => {
                 match err.kind() {
                     ErrorKind::PermissionDenied => {
-                        println!("cd: {}: Permission denied", cmd.args[0])
+                        write_(&format!("cd: {}: Permission denied\n", cmd.args[0]))
                     }
                     ErrorKind::NotFound => {
-                        println!("cd: {}: No such file or directory", cmd.args[0])
+                        write_(&format!("cd: {}: No such file or directory\n", cmd.args[0]))
                     }
-                    _ => println!("cd: undefined error"),
+                    _ => write_("cd: undefined error\n"),
                 };
             }
         }
     } else {
-        println!("cd: too many arguments: {}", cmd.args.join(" "));
+        write_(&format!("cd: too many arguments: {}\n", cmd.args.join(" ")));
     }
 }

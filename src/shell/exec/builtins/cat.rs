@@ -25,26 +25,26 @@ pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
             let bytes = match stdin.read_line(&mut input) {
                 Ok(byt) => byt,
                 Err(_) => {
-                    println!("cat: Input/output error");
+                    write_("cat: Input/output error\n");
                     break;
                 }
             };
             if bytes == 0 {
-                println!();
+                write_("\n");
                 break;
             }
-            print!("{}", input);
+            write_(&input);
         }
     } else {
         for file in cmd.args.clone() {
             let content = fs::read_to_string(file.clone());
             match content {
-                Ok(data) => print!("{}", data),
+                Ok(data) => write_(&data),
                 Err(err) => match err.kind() {
-                    ErrorKind::PermissionDenied => println!("cat: {}: Permission denied", file),
-                    ErrorKind::NotFound => println!("cat: {}: No such file or directory", file),
-                    ErrorKind::IsADirectory => println!("cat: {}: Is a directory", file),
-                    _ => println!("cat: undefined error"),
+                    ErrorKind::PermissionDenied => write_(&format!("cat: {}: Permission denied\n", file)),
+                    ErrorKind::NotFound => write_(&format!("cat: {}: No such file or directory\n", file)),
+                    ErrorKind::IsADirectory => write_(&format!("cat: {}: Is a directory\n", file)),
+                    _ => write_("cat: undefined error\n"),
                 },
             };
         }

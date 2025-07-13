@@ -3,6 +3,7 @@ pub mod builtins;
 use crate::shell::Shell;
 use crate::shell::exec::builtins::mkdir;
 use crate::shell::parse::Cmd;
+use crate::shell::exec::builtins::write_;
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -25,7 +26,7 @@ pub fn execution(shell: &mut Shell, command: Cmd) {
                 _ => {
                     let pid = fork();
                     if pid < 0 {
-                        println!("Fork failed");
+                        write_("Fork failed\n");
                         return;
                     } else if pid == 0 {
                         func(shell, &command);
@@ -35,7 +36,7 @@ pub fn execution(shell: &mut Shell, command: Cmd) {
                         let mut status = 0;
                         wait(&mut status);
                         if status != 0 {
-                            println!("error wait");
+                            write_("error wait\n");
                         } else {
                             // println!("child {} finished", pid);
                         }
@@ -43,7 +44,7 @@ pub fn execution(shell: &mut Shell, command: Cmd) {
                 }
             },
             None => {
-                println!("Command not found: {}", command.exec);
+                write_(&format!("Command not found: {}\n", command.exec));
             }
         }
     }

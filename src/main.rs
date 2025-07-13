@@ -2,7 +2,7 @@ mod shell;
 
 use std::{
     env,
-    io::{Write, stdin, stdout},
+    io::{ stdin},
     path::PathBuf,
 };
 
@@ -12,14 +12,24 @@ use shell::{
     parse::{display_prompt, parse_command, scan_command},
 };
 
+use crate::shell::exec::builtins::write_;
+
 unsafe extern "C" {
     fn signal(signal: i32, handler: extern "C" fn(i32));
 }
 
 extern "C" fn signal_handler(_signal: i32) {
-    stdout().flush().unwrap();
-    print!("\n{}", display_prompt());
-    stdout().flush().unwrap();
+    // match stdout().flush(){
+    //     Ok(_) => {}
+    //     Err(err) => std::process::exit(1),
+    // };
+    // print!("\n{}", display_prompt());
+    // match stdout().flush(){
+    //     Ok(_) => {}
+    //     Err(err) => std::process::exit(1),
+    // };
+    write_("\n");
+    write_(&display_prompt());
 }
 
 fn main() {
@@ -39,19 +49,14 @@ fn main() {
     loop {
         match &shell.state {
             State::Ready => {
-                print!("{}", display_prompt());
-                stdout().flush().unwrap();
+                write_(&display_prompt());
                 input = String::new();
             }
             State::Quote(typ) => {
-                print!("{}> ", typ);
-                shell.state = State::Ready;
-                stdout().flush().unwrap();
+                write_(&format!("{}> ", typ));
             }
             State::BackNewLine => {
-                print!("> ");
-                shell.state = State::Ready;
-                stdout().flush().unwrap();
+                write_(">");
             }
         };
 
@@ -60,22 +65,22 @@ fn main() {
             match stdin.read_line(&mut temp_buffer) {
                 Ok(byt) => {
                     if byt == 0 {
-                        println!("\nexiting shell...");
+                        write_("\nexiting shell...\n");
                         return;
                     }
                 }
-                Err(err) => println!("shell error: {}", err.to_string()),
+                Err(err) => write_(&format!("shell error: {}\n", err.to_string())),
             };
             input = format!("{}{}", input, temp_buffer);
         } else {
             match stdin.read_line(&mut input) {
                 Ok(byt) => {
                     if byt == 0 {
-                        println!("\nexiting shell...");
+                        write_("\nexiting shell...\n");
                         return;
                     }
                 }
-                Err(err) => println!("shell error: {}", err.to_string()),
+                Err(err) => write_(&format!("shell error: {}\n", err.to_string())),
             };
         }
 
@@ -87,7 +92,7 @@ fn main() {
                 Ok(cmd) => {
                     execution(&mut shell, cmd);
                 }
-                Err(err) => print!("{err}"),
+                Err(err) => write_(&format!("{}", err)),
             },
         };
     }

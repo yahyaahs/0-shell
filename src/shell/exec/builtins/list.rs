@@ -168,7 +168,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
         let readir = match data {
             Ok(v) => v,
             _ => {
-                println!("ls : cannot access : No such file or dir");
+                write_("ls : cannot access : No such file or dir\n");
                 continue;
             }
         };
@@ -238,16 +238,13 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                 _ => (),
             }
             if args.flags.contains(&"l".to_string()) && !output.is_empty() {
-                println!(
-                    "{}",
-                    format!(
-                        "{} {} {} {} {:>5} {:>5} {}",
-                        perms, nlinks, username, group, size, date, output
-                    )
-                );
+                write_(&format!(
+                    "{} {} {} {} {:>5} {:>5} {}\n",
+                    perms, nlinks, username, group, size, date, output
+                ));
                 output.clear();
             } else if !output.is_empty() {
-                println!("{}", output);
+                write_(&format!("{}\n", output));
                 output.clear();
             }
         }
