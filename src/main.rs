@@ -1,10 +1,6 @@
 mod shell;
 
-use std::{
-    env,
-    io::{ stdin},
-    path::PathBuf,
-};
+use std::{env, io::stdin, path::PathBuf};
 
 use shell::{
     Shell, State,
@@ -54,9 +50,11 @@ fn main() {
             }
             State::Quote(typ) => {
                 write_(&format!("{}> ", typ));
+                shell.state = State::Ready;
             }
             State::BackNewLine => {
                 write_(">");
+                shell.state = State::Ready;
             }
         };
 
@@ -90,6 +88,7 @@ fn main() {
             Some(new_state) => shell.state = new_state,
             None => match parse_command(&input) {
                 Ok(cmd) => {
+                    println!("-----> {:?}",cmd);
                     execution(&mut shell, cmd);
                 }
                 Err(err) => write_(&format!("{}", err)),

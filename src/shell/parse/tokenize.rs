@@ -117,7 +117,7 @@ fn tokenize(input: &str) -> Vec<String> {
                     chars.next();
                 } else {
                     if !current.is_empty() {
-                        tokens.push(current.clone());
+                        tokens.push(current.trim().to_string());
                         current.clear();
                     }
                     while let Some(&space) = chars.peek() {
@@ -137,7 +137,7 @@ fn tokenize(input: &str) -> Vec<String> {
     }
 
     if !current.is_empty() {
-        tokens.push(current);
+        tokens.push(current.trim().to_string());
     }
 
     tokens
