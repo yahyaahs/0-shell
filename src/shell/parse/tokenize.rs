@@ -3,8 +3,9 @@ use super::*;
 use crate::shell::State;
 use chrono::Local;
 
-pub fn scan_command(input: &str) -> Option<State> {
-    if input.ends_with("\\") && !input.ends_with("\\\\") {
+pub fn scan_command(input: &mut String, is_empty: bool) -> Option<State> {
+    if !is_empty && input.ends_with("\\") && !input.ends_with("\\\\") {
+        input.pop().unwrap();
         return Some(State::BackNewLine);
     }
 
@@ -50,6 +51,7 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
     let input = input.trim_start_matches(&exec).trim();
 
     let all_tokens = tokenize(&input);
+    println!("args ----> {:?}", all_tokens);
     let mut args: Vec<String> = Vec::new();
     let mut flags: Vec<String> = Vec::new();
 
@@ -90,6 +92,11 @@ fn tokenize(input: &str) -> Vec<String> {
         match ch {
             '\\' => {
                 chars.next(); // consume '\'
+                if let Some(n) = chars.peek() {
+                    if *n == '\n' {
+                        chars.next(); // consume '\n'
+                    }
+                }
                 if let Some(&escaped_char) = chars.peek() {
                     current.push(escaped_char);
                     chars.next(); // consume escaped char
