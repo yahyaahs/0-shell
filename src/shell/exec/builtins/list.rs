@@ -4,9 +4,8 @@ use chrono::{DateTime, Local};
 use users::{get_group_by_gid, get_user_by_uid};
 
 use std::{
-    fs::{self, DirEntry, read_link},
+    fs::{self, DirEntry, read_link, metadata},
     os::unix::fs::{MetadataExt, PermissionsExt},
-    path::PathBuf,
     time::{Duration, SystemTime},
 };
 
@@ -39,11 +38,8 @@ pub fn check_type(name: &DirEntry) -> Types {
     }
 }
 
-pub fn list_arg(args: &DirEntry) -> String {
-    let mode = match args.metadata() {
-        Ok(meta) => meta.permissions().mode(),
-        Err(_) => std::process::exit(1),
-    };
+fn list_args(meta: &std::fs::Metadata) -> String {
+    let mode = meta.permissions().mode();
     let file_type = match mode & 0o170000 {
         0o040000 => 'd', // directory
         0o100000 => '-', // regular file
@@ -54,41 +50,33 @@ pub fn list_arg(args: &DirEntry) -> String {
         0o020000 => 'c', //keyb , tty, ms
         _ => '?',        // other
     };
-
     let mut perms = String::new();
     perms.push(file_type);
-
     // Special
     let suid = mode & 0o4000 != 0;
     let sgid = mode & 0o2000 != 0;
     let sticky = mode & 0o1000 != 0;
-
     // User permissions
     perms.push(if mode & 0o400 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
-    // setuid
     perms.push(match (mode & 0o100 != 0, suid) {
         (true, true) => 's',
         (false, true) => 'S',
         (true, false) => 'x',
         (false, false) => '-',
     });
-
     // Group permissions
     perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
-    //setguid
     perms.push(match (mode & 0o010 != 0, sgid) {
         (true, true) => 's',
         (false, true) => 'S',
         (true, false) => 'x',
         (false, false) => '-',
     });
-
     // Others permissions
     perms.push(if mode & 0o004 != 0 { 'r' } else { '-' });
     perms.push(if mode & 0o002 != 0 { 'w' } else { '-' });
-    // sticky bit
     perms.push(match (mode & 0o001 != 0, sticky) {
         (true, true) => 't',
         (false, true) => 'T',
@@ -96,6 +84,37 @@ pub fn list_arg(args: &DirEntry) -> String {
         (false, false) => '-',
     });
     perms
+}
+fn get_group_and_user_meta(meta: &std::fs::Metadata) -> (String, String) {
+    let uid = meta.uid();
+    let gid = meta.gid();
+    let username = match get_user_by_uid(uid) {
+        Some(u) => u.name().to_string_lossy().to_string(),
+        None => "None".to_string(),
+    };
+    let group = match get_group_by_gid(gid) {
+        Some(g) => g.name().to_string_lossy().to_string(),
+        _ => "None".to_string(),
+    };
+    (username, group)
+}
+fn get_time_meta(meta: &std::fs::Metadata) -> String {
+    let time = match meta.modified() {
+        Ok(mtime) => mtime + Duration::from_secs(3600),
+        Err(_) => return "?".to_string(),
+    };
+    let now = SystemTime::now();
+    let under_six = Duration::from_secs(60 * 60 * 24 * 30);
+    let passed = match now.duration_since(time) {
+        Ok(duration) => duration < under_six,
+        Err(_) => true,
+    };
+    let formated: DateTime<Local> = time.into();
+    if passed {
+        formated.format("%b %e %H:%M").to_string()
+    } else {
+        formated.format("%b %e  %Y").to_string()
+    }
 }
 
 pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
@@ -137,116 +156,237 @@ pub fn get_time(args: &DirEntry) -> String {
         formated.format("%b %e  %Y").to_string()
     }
 }
-pub fn ls(_shell: &mut Shell, args: &Cmd) {
-    let mut paths = Vec::new();
-    if args.args.is_empty() {
-        paths.push(fs::read_dir("."));
-    } else {
-        for item in &args.args {
-            paths.push(fs::read_dir(item));
+fn handle_show_entries(args: &Cmd) {
+    let dot = std::fs::metadata(".");
+    let dotdot = std::fs::metadata("..");
+    if args.flags.contains(&"l".to_string()) {
+        if let Ok(meta) = dot {
+            let perms = list_args(&meta);
+            let nlinks = meta.nlink();
+            let size = meta.len();
+            let date = get_time_meta(&meta);
+            let (username, group) = get_group_and_user_meta(&meta);
+            write_(&format!(
+                "{} {} {} {} {:>5} {:>5} .\n",
+                perms, nlinks, username, group, size, date
+            ));
         }
+        if let Ok(meta) = dotdot {
+            let perms = list_args(&meta);
+            let nlinks = meta.nlink();
+            let size = meta.len();
+            let date = get_time_meta(&meta);
+            let (username, group) = get_group_and_user_meta(&meta);
+            write_(&format!(
+                "{} {} {} {} {:>5} {:>5} ..\n",
+                perms, nlinks, username, group, size, date
+            ));
+        }
+    } else {
+        write_(". .. ");
     }
+}
+
+pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let mut output = String::new();
     let show = args.flags.contains(&"a".to_string());
     let classify = args.flags.contains(&"F".to_string());
-    let mut perms = String::new();
-    let mut username = String::new();
-    let mut group = String::new();
-    let mut nlinks = 0;
-    let mut size = 0 as u64;
-    let mut date = String::new();
     let blue = "\x1b[34m";
     let green = "\x1b[32m";
     let reset = "\x1b[0m";
-    if show {
-        paths.push(PathBuf::from("."));
-        paths.push(PathBuf::from(".."));
-    }
 
-    for data in paths {
-        let readir = match data {
-            Ok(v) => v,
-            _ => {
-                write_("ls : cannot access : No such file or dir\n");
-                continue;
-            }
-        };
-        let mut entries: Vec<_> = readir.filter_map(Result::ok).collect();
-        entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    let targets: Vec<String> = if args.args.is_empty() {
+        vec![".".to_string()]
+    } else {
+        args.args.clone()
+    };
 
-        for elems in entries {
-            if args.flags.contains(&"l".to_string()) {
-                perms = list_arg(&elems);
-                nlinks = match elems.metadata() {
-                    Ok(meta) => meta.nlink(),
-                    Err(_) => 0,
-                };
-                (username, group) = get_group_and_user(&elems);
-                size = match elems.metadata() {
-                    Ok(meta) => meta.len(),
-                    Err(_) => 0,
-                };
-                date = get_time(&elems);
-            }
-            match check_type(&elems) {
-                Types::Dir(name) => {
-                    let name_str = name.to_string_lossy();
-                    let display = if classify {
-                        format!("{}/", name_str)
-                    } else {
-                        name_str.to_string()
+    for target in targets {
+        let meta = std::fs::metadata(&target);
+        match meta {
+            Ok(meta) => {
+                if meta.is_dir() {
+                    let readir = fs::read_dir(&target);
+                    let mut entries: Vec<_> = match readir {
+                        Ok(rd) => rd.filter_map(Result::ok).collect(),
+                        Err(_) => {
+                            write_(&format!("ls : cannot access {}: No such file or dir\n", target));
+                            continue;
+                        }
                     };
-                    let colored = format!("{}{}{}", blue, display, reset);
-                    if show {
-                        output.push_str(&colored);
-                    } else if !name_str.starts_with('.') {
-                        output.push_str(&colored);
+                    entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+                    if args.flags.contains(&"l".to_string()) {
+                        let mut total_blocks = 0;
+                        let show_all = args.flags.contains(&"a".to_string());
+                        if show_all {
+                            if let Ok(meta) = metadata(&target) {
+                                total_blocks += meta.blocks();
+                            }
+                            if let Ok(meta) = metadata(format!("{}/..", &target)) {
+                                total_blocks += meta.blocks();
+                            }
+                        }
+                        for entry in &entries {
+                            let name = entry.file_name();
+                            let name_str = name.to_string_lossy();
+                            if !show_all && name_str.starts_with('.') {
+                                continue;
+                            }
+                            if let Ok(meta) = entry.metadata() {
+                                total_blocks += meta.blocks();
+                            }
+                        }
+                        write_(&format!("total {}\n", total_blocks / 2));
                     }
-                }
-                Types::Executable(name) => {
-                    let name_str = name.to_string_lossy();
                     if show {
-                        output.push_str(&format!("{}{}{}", green, name_str, reset));
-                    } else if !name_str.starts_with('.') {
-                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                        handle_show_entries(args);
                     }
-                }
-
-                Types::Symlink(name) => {
-                    let name_str = name.to_string_lossy();
-                    if show {
-                        output.push_str(&format!(
-                            "{} -> {}",
-                            elems.path().to_string_lossy(),
-                            name_str
+                    for elems in entries {
+                        if args.flags.contains(&"l".to_string()) {
+                            let perms = match elems.metadata() {
+                                Ok(m) => list_args(&m),
+                                Err(_) => String::from("?"),
+                            };
+                            let nlinks = match elems.metadata() {
+                                Ok(meta) => meta.nlink(),
+                                Err(_) => 0,
+                            };
+                            let (username, group) = get_group_and_user(&elems);
+                            let size = match elems.metadata() {
+                                Ok(meta) => meta.len(),
+                                Err(_) => 0,
+                            };
+                            let date = get_time(&elems);
+                            match check_type(&elems) {
+                                Types::Dir(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    let display = if classify {
+                                        format!("{}/", name_str)
+                                    } else {
+                                        name_str.to_string()
+                                    };
+                                    let colored = format!("{}{}{}", blue, display, reset);
+                                    if show {
+                                        output.push_str(&colored);
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&colored);
+                                    }
+                                }
+                                Types::Executable(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    if show {
+                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                    }
+                                }
+                                Types::Symlink(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    if show {
+                                        output.push_str(&format!(
+                                            "{} -> {}",
+                                            elems.path().to_string_lossy(),
+                                            name_str
+                                        ));
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&format!(
+                                            "{} -> {}",
+                                            elems.path().to_string_lossy(),
+                                            name_str
+                                        ));
+                                    }
+                                }
+                                Types::File(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    if show {
+                                        output.push_str(&name_str);
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&name_str);
+                                    }
+                                }
+                                _ => (),
+                            }
+                            if !output.is_empty() {
+                                write_(&format!(
+                                    "{} {} {} {} {:>5} {:>5} {}\n",
+                                    perms, nlinks, username, group, size, date, output
+                                ));
+                                output.clear();
+                            }
+                        } else {
+                            match check_type(&elems) {
+                                Types::Dir(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    let display = if classify {
+                                        format!("{}/", name_str)
+                                    } else {
+                                        name_str.to_string()
+                                    };
+                                    let colored = format!("{}{}{}", blue, display, reset);
+                                    if show {
+                                        output.push_str(&colored);
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&colored);
+                                    }
+                                }
+                                Types::Executable(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    if show {
+                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                    }
+                                }
+                                Types::Symlink(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    if show {
+                                        output.push_str(&format!(
+                                            "{} -> {}",
+                                            elems.path().to_string_lossy(),
+                                            name_str
+                                        ));
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&format!(
+                                            "{} -> {}",
+                                            elems.path().to_string_lossy(),
+                                            name_str
+                                        ));
+                                    }
+                                }
+                                Types::File(name) => {
+                                    let name_str = name.to_string_lossy();
+                                    if show {
+                                        output.push_str(&name_str);
+                                    } else if !name_str.starts_with('.') {
+                                        output.push_str(&name_str);
+                                    }
+                                }
+                                _ => (),
+                            }
+                            if !output.is_empty() {
+                                write_(&format!("{}\n", output));
+                                output.clear();
+                            }
+                        }
+                    }
+                } else {
+                    if args.flags.contains(&"l".to_string()) {
+                        let perms = list_args(&meta);
+                        let nlinks = meta.nlink();
+                        let size = meta.len();
+                        let date = get_time_meta(&meta);
+                        let (username, group) = get_group_and_user_meta(&meta);
+                        write_(&format!(
+                            "{} {} {} {} {:>5} {:>5} {}\n",
+                            perms, nlinks, username, group, size, date, target
                         ));
-                    } else if !name_str.starts_with('.') {
-                        output.push_str(&format!(
-                            "{} -> {}",
-                            elems.path().to_string_lossy(),
-                            name_str
-                        ));
+                    } else {
+                        write_(&format!("{}\n", target));
                     }
                 }
-                Types::File(name) => {
-                    let name_str = name.to_string_lossy();
-                    if show {
-                        output.push_str(&name_str);
-                    } else if !name_str.starts_with('.') {
-                        output.push_str(&name_str);
-                    }
-                }
-                _ => (),
             }
-            if args.flags.contains(&"l".to_string()) && !output.is_empty() {
-                write_(&format!(
-                    "{} {} {} {} {:>5} {:>5} {}\n",
-                    perms, nlinks, username, group, size, date, output
-                ));
-                output.clear();
-            } else if !output.is_empty() {
-                write_(&format!("{}\n", output));
-                output.clear();
+            Err(_) => {
+                write_(&format!("ls : cannot access {}: No such file or dir\n", target));
             }
         }
     }
