@@ -23,6 +23,8 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
         } else {
             shell.cwd.join(target_path)
         };
+        
+
 
         if final_path.is_file() {
             write_(&format!("cd: not a directory: {}\n", cmd.args[0]));
