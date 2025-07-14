@@ -95,7 +95,11 @@ fn main() {
             }
         }
 
-        let mut to_scan = input.trim().to_string();
+        let mut to_scan = if shell.state == State::BackNewLine {
+            input.trim().to_string()
+        } else {
+            input.to_string()
+        };
         let state = scan_command(&mut to_scan, is_empty);
         input = to_scan;
 

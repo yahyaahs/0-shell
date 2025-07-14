@@ -92,7 +92,17 @@ fn tokenize(input: &str) -> Vec<String> {
             '\\' => {
                 chars.next(); // consume bkslash
                 if in_single_quote || in_double_quote {
-                    current.push('\\'); // count it
+                    if let Some(&next_char) = chars.peek() {
+                        chars.next();
+                        if next_char == 'n' {
+                            current.push('\n'); // count \n
+                        } else if next_char == '"' || next_char == '\'' {
+                            current.push(next_char); // count quoat
+                        } else {
+                            current.push('\\'); // count it
+                            current.push(next_char);
+                        }
+                    }
                 } else {
                     if let Some(&next_char) = chars.peek() {
                         if next_char == '\n' {

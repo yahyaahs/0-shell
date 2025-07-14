@@ -18,6 +18,10 @@ pub fn exit(_shell: &mut Shell, cmd: &Cmd) {
     };
 }
 
+pub fn clear(_shell: &mut Shell, _cmd: &Cmd) {
+    write_("\x1b[2J\x1b[H");
+}
+
 pub fn echo(_shell: &mut Shell, cmd: &Cmd) {
     write_(&format!("{}\n", cmd.args.join(" ")));
 }
