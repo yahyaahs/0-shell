@@ -51,7 +51,6 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
     let input = input.trim_start_matches(&exec).trim();
 
     let all_tokens = tokenize(&input);
-    println!("args ----> {:?}", all_tokens);
     let mut args: Vec<String> = Vec::new();
     let mut flags: Vec<String> = Vec::new();
 
@@ -91,21 +90,29 @@ fn tokenize(input: &str) -> Vec<String> {
     while let Some(&ch) = chars.peek() {
         match ch {
             '\\' => {
-                chars.next(); // consume '\'
-                if let Some(n) = chars.peek() {
-                    if *n == '\n' {
-                        chars.next(); // consume '\n'
+                chars.next(); // consume bkslash
+                if in_single_quote || in_double_quote {
+                    current.push('\\'); // count it
+                } else {
+                    if let Some(&next_char) = chars.peek() {
+                        if next_char == '\n' {
+                            chars.next();
+                            continue;
+                        }
                     }
-                }
-                if let Some(&escaped_char) = chars.peek() {
-                    current.push(escaped_char);
-                    chars.next(); // consume escaped char
+
+                    if let Some(&escaped_char) = chars.peek() {
+                        current.push(escaped_char);
+                        chars.next();
+                    } else {
+                        current.push('\\');
+                    }
                 }
             }
             '\'' => {
                 chars.next(); // consume quote
                 if !in_double_quote {
-                    in_single_quote = !in_single_quote;
+                    in_single_quote = !in_single_quote; // switch found
                 } else {
                     current.push(ch);
                 }
@@ -113,7 +120,7 @@ fn tokenize(input: &str) -> Vec<String> {
             '"' => {
                 chars.next(); // consume quote
                 if !in_single_quote {
-                    in_double_quote = !in_double_quote;
+                    in_double_quote = !in_double_quote; // switch found
                 } else {
                     current.push(ch);
                 }
@@ -124,12 +131,13 @@ fn tokenize(input: &str) -> Vec<String> {
                     chars.next();
                 } else {
                     if !current.is_empty() {
-                        tokens.push(current.trim().to_string());
+                        tokens.push(current.clone());
                         current.clear();
                     }
+
                     while let Some(&space) = chars.peek() {
                         if space == ' ' || space == '\t' {
-                            chars.next();
+                            chars.next(); // consume spaces
                         } else {
                             break;
                         }
@@ -144,7 +152,7 @@ fn tokenize(input: &str) -> Vec<String> {
     }
 
     if !current.is_empty() {
-        tokens.push(current.trim().to_string());
+        tokens.push(current);
     }
 
     tokens
