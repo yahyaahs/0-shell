@@ -158,10 +158,9 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let blue = "\x1b[34m";
     let green = "\x1b[32m";
     let reset = "\x1b[0m";
-    let mut paths_hidden = vec![];
     if show {
-        paths_hidden.push(PathBuf::from("."));
-        paths_hidden.push(PathBuf::from(".."));
+        paths.push(PathBuf::from("."));
+        paths.push(PathBuf::from(".."));
     }
 
     for data in paths {
@@ -172,10 +171,12 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                 continue;
             }
         };
-        for it in readir {
-            let mut elems = it.unwrap();
+        let mut entries: Vec<_> = readir.filter_map(Result::ok).collect();
+        entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+        for elems in entries {
             if args.flags.contains(&"l".to_string()) {
-                perms = list_arg(&mut elems);
+                perms = list_arg(&elems);
                 nlinks = match elems.metadata() {
                     Ok(meta) => meta.nlink(),
                     Err(_) => 0,
