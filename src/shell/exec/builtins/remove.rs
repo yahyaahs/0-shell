@@ -71,8 +71,21 @@ pub fn can_remove_directly(data_of_target: Metadata, path: &String) -> bool {
     if data_of_target.permissions().mode() & 0o200 == 0 {
         let uid = data_of_target.uid();
         let gid = data_of_target.gid();
-        let user_name = get_user_by_uid(uid).unwrap();
-        let group_name = get_group_by_gid(gid).unwrap();
+        let user_name = match get_user_by_uid(uid) {
+            Some(user) => user,
+            None => {
+                println!("we can't get the user name");
+                return false
+            },
+        };
+        let group_name = match get_group_by_gid(gid) {
+
+            Some(group) => group,
+            None => {
+                println!("we can't get the group name");
+                return false;
+            },
+        };
         print!(
             "override r--r--r-- {}/{} for {}? ",
             user_name.name().to_string_lossy(),

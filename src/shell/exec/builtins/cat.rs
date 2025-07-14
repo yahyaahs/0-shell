@@ -28,8 +28,13 @@ pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
         for file in cmd.args.clone() {
             let content = fs::read_to_string(file.clone());
             match content {
-                Ok(data) => print!("{}", data),
-                Err(_) => println!("cat: {}: No such file or directory", file),
+                Ok(data) => print!("{}\n", data),
+                Err(err) => match err.kind() {
+                    ErrorKind::PermissionDenied => println!("cat: {}: Permission denied", file),
+                    ErrorKind::NotFound => println!("cat: {}: No such file or directory", file),
+                    ErrorKind::IsADirectory => println!("cat: {}: Is a directory", file),
+                    _ => println!("cat: undefined error"),
+                },
             };
         }
     }

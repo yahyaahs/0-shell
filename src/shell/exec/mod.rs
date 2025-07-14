@@ -9,7 +9,7 @@ use std::{ffi::OsString};
 
 pub use builtins::{
     base::{echo, exit, pwd},
-    cat, cd, list, mkdir, remove, copyf::cp
+    cat, cd, list, mkdir, remove, copyf::cp, mv
 };
 
 
@@ -63,5 +63,6 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
         ("rm".to_string(), remove::rm as fn(&mut Shell, &Cmd)),
         ("cp".to_string(), cp as fn(&mut Shell, &Cmd)),
+        ("mv".to_string(), mv::mv as fn(&mut Shell, &Cmd)),
     ])
 }

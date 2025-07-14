@@ -5,5 +5,5 @@ pub mod list;
 pub mod mkdir;
 pub mod remove;
 pub mod copyf;
-
+pub mod mv;
 pub use super::*;

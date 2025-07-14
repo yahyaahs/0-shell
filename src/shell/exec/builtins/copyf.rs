@@ -1,6 +1,6 @@
 use crate::shell::{Shell, parse::Cmd};
 use io::*;
-use std::{fs::{self, metadata, OpenOptions}, io, os::unix::fs::PermissionsExt};
+use std::{fs::{self, metadata}, io, os::unix::fs::PermissionsExt};
 
 pub fn cp(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() < 2 {
@@ -38,9 +38,17 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                     eprintln!("Error reading file: {}", error);
                     return
                 }
-            }; 
-            create_file(target, &content, source, &command.exec);
-            // copy_perms(data_of_source, )
+            };
+            match create_file(target, &content, source, &command.exec) {
+                res => {
+                    if res.is_empty() {
+                        return
+                    }else{
+                        println!("{:?}", res);
+                        copy_perms(source, &res);
+                    }
+                }
+            }
         }
     }
 }
@@ -58,23 +66,6 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         println!("{}: {} {}", command, source, "is a directory (not copied).");
         return
     }
-    // println!("{:?}", data_of_source);
-    // let is_exist = match fs::exists(target) {
-    //     Ok(b) => b,
-    //     Err(err) => {
-    //         println!("{:?}", err);
-    //         return;
-    //     }
-    // };
-    // println!("{:?}",is_exist);
-    // let data_of_target = match metadata(target) {
-    //     Ok(data) => data,
-    //     Err(error) => match error.kind() {
-    //         ErrorKind::NotFound => {create_file(target); return},
-    //         _ => return
-    //     },
-    // };
-    // println!("data_of_target {:?}", data_of_target);
     let content : String = match fs::read_to_string(source) {
         Ok(data) => {
            data
@@ -84,37 +75,51 @@ pub fn one_source(source: &String, command: &String, target: &String) {
                 println!("{}: {}: {}", command, source,"Permission denied");
                 return
             }
-            _ =>{ eprintln!("Error reading file: {}", error); return}
+            _ => {
+                eprintln!("Error reading file: {}", error);
+                return;
+            }
+        },
+    };
+    match create_file(target, &content, source, command) {
+        res => {
+            if res.is_empty() {
+                return
+            }else{
+                println!("{:?}", res);
+                copy_perms(source, &res);
+            }
         }
-    }; 
-    create_file(target, &content, source, command);
+    }
 }
 
-pub fn create_file(path: &String, content: &String, source: &String, command: &String) {
-    match fs::write(path, content) {
-        Ok(_) => return,
+pub fn create_file(path: &String, content: &String, source: &String, command: &String) -> String{
+    match fs::write(path, content.trim()) {
+        Ok(_) => {},
         Err(error) => match error.kind() {
             ErrorKind::IsADirectory => {
-                let new_path = &format!("{}/{}",path,source);
-                match fs::write(new_path, content) {
-                    Ok(_) => return,
-                    Err(_) => {
-                        create_file(new_path, content, source, command);
-                        copy_perms(source, new_path);
-                        return
-                    }
-                }
+                let new_path = &format!("{}/{}", path, source);
+                create_file(new_path, content, source, command);
+                return new_path.clone();
             },
             ErrorKind::PermissionDenied => {
-                println!("{}: {}: {}", command, path,"Permission denied");
-                return
-            }
+                println!("{}: {}: {}", command, path, "Permission denied");
+                return "".to_string();
+            },
+            ErrorKind::NotADirectory => {
+                println!("{}: {}: {}", command, path.trim_end_matches("/"), "is not a directory");
+                return "".to_string();
+            },
+            ErrorKind::NotFound => {
+                println!("{}: {}: {}", command, path, "Not Fount");
+                return "".to_string();
+            },
             _ => {
-                println!("{:?}", error);
+                return "".to_string();
             }
         }
     };
-    copy_perms(source, path);
+    path.clone()
 }
 
 pub fn copy_perms(source: &String, target: &String) {
