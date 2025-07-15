@@ -23,7 +23,10 @@ pub fn check_type(name: &DirEntry) -> Types {
     match name.metadata() {
         Ok(meta) => {
             if meta.is_symlink() {
-                return Types::Symlink(read_link(name.path()).unwrap().into_os_string());
+                return match read_link(name.path()) {
+                    Ok(link) => Types::Symlink(link.into_os_string()),
+                    Err(_) => Types::Symlink(name.file_name()), 
+                };
             } else if meta.permissions().mode() & 0o111 != 0 && meta.is_file() {
                 return Types::Executable(name.file_name());
             } else if meta.is_file() {
@@ -163,23 +166,39 @@ fn handle_show_entries(args: &Cmd) {
         if let Ok(meta) = dot {
             let perms = list_args(&meta);
             let nlinks = meta.nlink();
-            let size = meta.len();
+            let (size_or_dev, _) = match perms.chars().next() {
+                Some('c') | Some('b') => {
+                    let rdev = meta.rdev();
+                    let major = (rdev >> 8) & 0xfff;
+                    let minor = (rdev & 0xff) | ((rdev >> 12) & 0xfff00);
+                    (format!("{}, {}", major, minor), true)
+                }
+                _ => (format!("{}", meta.len()), false)
+            };
             let date = get_time_meta(&meta);
             let (username, group) = get_group_and_user_meta(&meta);
             write_(&format!(
                 "{} {} {} {} {:>5} {:>5} .\n",
-                perms, nlinks, username, group, size, date
+                perms, nlinks, username, group, size_or_dev, date
             ));
         }
         if let Ok(meta) = dotdot {
             let perms = list_args(&meta);
             let nlinks = meta.nlink();
-            let size = meta.len();
+            let (size_or_dev, _) = match perms.chars().next() {
+                Some('c') | Some('b') => {
+                    let rdev = meta.rdev();
+                    let major = (rdev >> 8) & 0xfff;
+                    let minor = (rdev & 0xff) | ((rdev >> 12) & 0xfff00);
+                    (format!("{}, {}", major, minor), true)
+                }
+                _ => (format!("{}", meta.len()), false)
+            };
             let date = get_time_meta(&meta);
             let (username, group) = get_group_and_user_meta(&meta);
             write_(&format!(
                 "{} {} {} {} {:>5} {:>5} ..\n",
-                perms, nlinks, username, group, size, date
+                perms, nlinks, username, group, size_or_dev, date
             ));
         }
     } else {
@@ -252,9 +271,14 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                                 Err(_) => 0,
                             };
                             let (username, group) = get_group_and_user(&elems);
-                            let size = match elems.metadata() {
-                                Ok(meta) => meta.len(),
-                                Err(_) => 0,
+                            let (size_or_dev, _) = match perms.chars().next() {
+                                Some('c') | Some('b') => {
+                                    let rdev = elems.metadata().unwrap().rdev();
+                                    let major = (rdev >> 8) & 0xfff;
+                                    let minor = (rdev & 0xff) | ((rdev >> 12) & 0xfff00);
+                                    (format!("{}, {}", major, minor), true)
+                                }
+                                _ => (format!("{}", elems.metadata().unwrap().len()), false)
                             };
                             let date = get_time(&elems);
                             match check_type(&elems) {
@@ -274,26 +298,48 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                                 }
                                 Types::Executable(name) => {
                                     let name_str = name.to_string_lossy();
-                                    if show {
-                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
-                                    } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                    if classify {
+                                        if show {
+                                            output.push_str(&format!("{}*{}{}", green, name_str, reset));
+                                        } else if !name_str.starts_with('.') {
+                                            output.push_str(&format!("{}*{}{}", green, name_str, reset));
+                                        }
+                                    } else {
+                                        if show {
+                                            output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                        } else if !name_str.starts_with('.') {
+                                            output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                        }
                                     }
                                 }
                                 Types::Symlink(name) => {
                                     let name_str = name.to_string_lossy();
-                                    if show {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
-                                    } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
+                                    if args.flags.contains(&"l".to_string()) {
+                                        if show {
+                                            output.push_str(&format!(
+                                                "{} -> {}",
+                                                elems.path().to_string_lossy(),
+                                                name_str
+                                            ));
+                                        } else if !name_str.starts_with('.') {
+                                            output.push_str(&format!(
+                                                "{} -> {}",
+                                                elems.path().to_string_lossy(),
+                                                name_str
+                                            ));
+                                        }
+                                    } else {
+                                        let display = if classify {
+                                            format!("{}@", elems.file_name().to_string_lossy())
+                                        } else {
+                                            elems.file_name().to_string_lossy().to_string()
+                                        };
+                                        let colored = format!("{}{}{}", blue, display, reset);
+                                        if show {
+                                            output.push_str(&colored);
+                                        } else if !display.starts_with('.') {
+                                            output.push_str(&colored);
+                                        }
                                     }
                                 }
                                 Types::File(name) => {
@@ -309,7 +355,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                             if !output.is_empty() {
                                 write_(&format!(
                                     "{} {} {} {} {:>5} {:>5} {}\n",
-                                    perms, nlinks, username, group, size, date, output
+                                    perms, nlinks, username, group, size_or_dev, date, output
                                 ));
                                 output.clear();
                             }
@@ -331,26 +377,48 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                                 }
                                 Types::Executable(name) => {
                                     let name_str = name.to_string_lossy();
-                                    if show {
-                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
-                                    } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                    if classify {
+                                        if show {
+                                            output.push_str(&format!("{}*{}{}", green, name_str, reset));
+                                        } else if !name_str.starts_with('.') {
+                                            output.push_str(&format!("{}*{}{}", green, name_str, reset));
+                                        }
+                                    } else {
+                                        if show {
+                                            output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                        } else if !name_str.starts_with('.') {
+                                            output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                        }
                                     }
                                 }
                                 Types::Symlink(name) => {
                                     let name_str = name.to_string_lossy();
-                                    if show {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
-                                    } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
+                                    if args.flags.contains(&"l".to_string()) {
+                                        if show {
+                                            output.push_str(&format!(
+                                                "{} -> {}",
+                                                elems.path().to_string_lossy(),
+                                                name_str
+                                            ));
+                                        } else if !name_str.starts_with('.') {
+                                            output.push_str(&format!(
+                                                "{} -> {}",
+                                                elems.path().to_string_lossy(),
+                                                name_str
+                                            ));
+                                        }
+                                    } else {
+                                        let display = if classify {
+                                            format!("{}@", elems.file_name().to_string_lossy())
+                                        } else {
+                                            elems.file_name().to_string_lossy().to_string()
+                                        };
+                                        let colored = format!("{}{}{}", blue, display, reset);
+                                        if show {
+                                            output.push_str(&colored);
+                                        } else if !display.starts_with('.') {
+                                            output.push_str(&colored);
+                                        }
                                     }
                                 }
                                 Types::File(name) => {
@@ -373,12 +441,20 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                     if args.flags.contains(&"l".to_string()) {
                         let perms = list_args(&meta);
                         let nlinks = meta.nlink();
-                        let size = meta.len();
+                        let (size_or_dev, _) = match perms.chars().next() {
+                            Some('c') | Some('b') => {
+                                let rdev = meta.rdev();
+                                let major = (rdev >> 8) & 0xfff;
+                                let minor = (rdev & 0xff) | ((rdev >> 12) & 0xfff00);
+                                (format!("{}, {}", major, minor), true)
+                            }
+                            _ => (format!("{}", meta.len()), false)
+                        };
                         let date = get_time_meta(&meta);
                         let (username, group) = get_group_and_user_meta(&meta);
                         write_(&format!(
                             "{} {} {} {} {:>5} {:>5} {}\n",
-                            perms, nlinks, username, group, size, date, target
+                            perms, nlinks, username, group, size_or_dev, date, target
                         ));
                     } else {
                         write_(&format!("{}\n", target));
