@@ -3,6 +3,19 @@ use super::*;
 use std::{env, io::ErrorKind, path::PathBuf};
 
 pub fn cd(shell: &mut Shell, cmd: &Cmd) {
+    if !shell.cwd.exists() {
+        write_(&format!(
+            "cd: warning: directory {} was deleted, switching to root \"/\"\n",
+            shell.cwd.display()
+        ));
+        let root = PathBuf::from("/");
+        if env::set_current_dir(root.clone()).is_err() {
+            eprintln!("cd: undefined error\n");
+        };
+        shell.cwd = root;
+        return;
+    }
+
     if cmd.args.is_empty() {
         let home = env::var("HOME");
         match home {
@@ -23,8 +36,6 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
         } else {
             shell.cwd.join(target_path)
         };
-        
-
 
         if final_path.is_file() {
             write_(&format!("cd: not a directory: {}\n", cmd.args[0]));

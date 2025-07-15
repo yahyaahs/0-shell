@@ -85,7 +85,6 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
         }
     }
 
-    println!("cmd :{:?} {:?}", flags, args);
     Ok(Cmd { exec, flags, args })
 }
 
