@@ -1,7 +1,7 @@
 use super::*;
 
 use std::{
-    fs::{self, Metadata, metadata, remove_dir_all, remove_file},
+    fs::{self, metadata, remove_dir_all, remove_file},
     io::*,
     os::unix::fs::{MetadataExt, PermissionsExt},
 };
@@ -12,8 +12,12 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() == 0 {
         println!("usage: rm [-r] file ...\nunlink [--] file");
     }
-
+    
     for path in &command.args {
+        if path.contains("./") || path.contains("../") {
+            eprintln!("rm: {:?} and {:?} may not be removed", ".", "..");
+            return
+        }
         let is_exist = match fs::exists(path) {
             Ok(b) => b,
             Err(err) => {
@@ -42,6 +46,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                     return;
                 } else {
                     if can_remove_directly(data_of_target, path) {
+                        println!("dir to remove {}",path);
                         match remove_dir_all(path) {
                             Ok(_) => continue,
                             Err(error) => match error.kind() {
@@ -67,7 +72,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
     }
 }
 
-pub fn can_remove_directly(data_of_target: Metadata, path: &String) -> bool {
+pub fn can_remove_directly(data_of_target: fs::Metadata, path: &String) -> bool {
     if data_of_target.permissions().mode() & 0o200 == 0 {
         let uid = data_of_target.uid();
         let gid = data_of_target.gid();
