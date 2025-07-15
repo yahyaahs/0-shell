@@ -18,18 +18,19 @@ pub fn exit(_shell: &mut Shell, cmd: &Cmd) {
     };
 }
 
+pub fn clear(_shell: &mut Shell, _cmd: &Cmd) {
+    write_("\x1b[2J\x1b[H");
+}
+
 pub fn echo(_shell: &mut Shell, cmd: &Cmd) {
     write_(&format!("{}\n", cmd.args.join(" ")));
 }
 
 pub fn pwd(shell: &mut Shell, _cmd: &Cmd) {
-    write_(&format!(
-        "{}\n",
-        shell
-            .cwd
-            .to_str()
-            .unwrap_or("cannot find current directory")
-    ));
+    match shell.cwd.to_str() {
+        Some(path_str) => write_(&format!("{}\n", path_str)),
+        None => write_("Error: Cannot convert current directory to string"),
+    }
 }
 
 pub fn touch(_shell: &mut Shell, cmd: &Cmd) {
@@ -44,10 +45,13 @@ pub fn touch(_shell: &mut Shell, cmd: &Cmd) {
         match OpenOptions::new().create(true).append(true).open(&path) {
             Ok(_) => {}
             Err(err) => match err.kind() {
-                ErrorKind::PermissionDenied => write_(&format!("touch: {}: Permission denied\n", file)),
-                ErrorKind::NotFound => {
-                    write_(&format!("touch: cannot touch {}: No such file or directory\n", file))
+                ErrorKind::PermissionDenied => {
+                    write_(&format!("touch: {}: Permission denied\n", file))
                 }
+                ErrorKind::NotFound => write_(&format!(
+                    "touch: cannot touch {}: No such file or directory\n",
+                    file
+                )),
                 ErrorKind::IsADirectory => write_(&format!("touch: {}: Is a directory\n", file)),
                 _ => write_(&format!("touch: {}: {}\n", file, err)),
             },
@@ -88,20 +92,38 @@ fn get_help_texts() -> HashMap<&'static str, &'static str> {
         "echo",
         "echo [args...]: Print arguments to the standard output.\n\tUsage: echo \"helloword\"",
     );
-    map.insert("pwd", "pwd: Print the current working directory.\n\tUsage: pwd");
+    map.insert(
+        "pwd",
+        "pwd: Print the current working directory.\n\tUsage: pwd",
+    );
     map.insert(
         "touch",
         "touch [file...]: Create empty file(s).\n\tUsage: touch [file]",
     );
-    map.insert("ls", "ls: List directory contents.\n\tUsage: ls -[lfa] [dir]");
-    map.insert("cd", "cd [dir]: Change the current directory.\n\tUsage: cd [dir]");
-    map.insert("cat", "cat [file...]: Concatenate and display file(s).\n\tUsage: cat [file]");
-    map.insert("mkdir", "mkdir [dir...]: Create new directories.\n\tUsage: mkdir [dir]");
+    map.insert(
+        "ls",
+        "ls: List directory contents.\n\tUsage: ls -[lfa] [dir]",
+    );
+    map.insert(
+        "cd",
+        "cd [dir]: Change the current directory.\n\tUsage: cd [dir]",
+    );
+    map.insert(
+        "cat",
+        "cat [file...]: Concatenate and display file(s).\n\tUsage: cat [file]",
+    );
+    map.insert(
+        "mkdir",
+        "mkdir [dir...]: Create new directories.\n\tUsage: mkdir [dir]",
+    );
     map.insert(
         "rm",
         "rm [file...]: Remove file(s) or directory recursively if implemented.\n\tUsage: rm -[r] [file]",
     );
-    map.insert("cp", "cp [src] [dest]: Copy file from src to dest.\n\tUsage: pc [src] [dest]");
+    map.insert(
+        "cp",
+        "cp [src] [dest]: Copy file from src to dest.\n\tUsage: pc [src] [dest]",
+    );
 
     map
 }

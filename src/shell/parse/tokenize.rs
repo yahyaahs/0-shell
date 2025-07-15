@@ -3,8 +3,9 @@ use super::*;
 use crate::shell::State;
 use chrono::Local;
 
-pub fn scan_command(input: &str) -> Option<State> {
-    if input.ends_with("\\") && !input.ends_with("\\\\") {
+pub fn scan_command(input: &mut String, is_empty: bool) -> Option<State> {
+    if !is_empty && input.ends_with("\\") && !input.ends_with("\\\\") {
+        input.pop().unwrap();
         return Some(State::BackNewLine);
     }
 
@@ -89,16 +90,39 @@ fn tokenize(input: &str) -> Vec<String> {
     while let Some(&ch) = chars.peek() {
         match ch {
             '\\' => {
-                chars.next(); // consume '\'
-                if let Some(&escaped_char) = chars.peek() {
-                    current.push(escaped_char);
-                    chars.next(); // consume escaped char
+                chars.next(); // consume bkslash
+                if in_single_quote || in_double_quote {
+                    if let Some(&next_char) = chars.peek() {
+                        chars.next();
+                        if next_char == 'n' {
+                            current.push('\n'); // count \n
+                        } else if next_char == '"' || next_char == '\'' {
+                            current.push(next_char); // count quoat
+                        } else {
+                            current.push('\\'); // count it
+                            current.push(next_char);
+                        }
+                    }
+                } else {
+                    if let Some(&next_char) = chars.peek() {
+                        if next_char == '\n' {
+                            chars.next();
+                            continue;
+                        }
+                    }
+
+                    if let Some(&escaped_char) = chars.peek() {
+                        current.push(escaped_char);
+                        chars.next();
+                    } else {
+                        current.push('\\');
+                    }
                 }
             }
             '\'' => {
                 chars.next(); // consume quote
                 if !in_double_quote {
-                    in_single_quote = !in_single_quote;
+                    in_single_quote = !in_single_quote; // switch found
                 } else {
                     current.push(ch);
                 }
@@ -106,7 +130,7 @@ fn tokenize(input: &str) -> Vec<String> {
             '"' => {
                 chars.next(); // consume quote
                 if !in_single_quote {
-                    in_double_quote = !in_double_quote;
+                    in_double_quote = !in_double_quote; // switch found
                 } else {
                     current.push(ch);
                 }
@@ -117,12 +141,13 @@ fn tokenize(input: &str) -> Vec<String> {
                     chars.next();
                 } else {
                     if !current.is_empty() {
-                        tokens.push(current.trim().to_string());
+                        tokens.push(current.clone());
                         current.clear();
                     }
+
                     while let Some(&space) = chars.peek() {
                         if space == ' ' || space == '\t' {
-                            chars.next();
+                            chars.next(); // consume spaces
                         } else {
                             break;
                         }
@@ -137,7 +162,7 @@ fn tokenize(input: &str) -> Vec<String> {
     }
 
     if !current.is_empty() {
-        tokens.push(current.trim().to_string());
+        tokens.push(current);
     }
 
     tokens

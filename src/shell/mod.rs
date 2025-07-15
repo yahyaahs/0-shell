@@ -8,12 +8,12 @@ pub mod parse;
 
 #[derive(Clone, Debug)]
 pub struct Shell {
-    pub cwd: PathBuf, // Current working directory
+    pub cwd: PathBuf,                                    // Current working directory
     pub builtins: HashMap<String, fn(&mut Shell, &Cmd)>, // store all built in cmd
     pub state: State,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum State {
     Ready,
     Quote(String),

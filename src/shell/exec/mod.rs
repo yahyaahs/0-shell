@@ -2,14 +2,14 @@ pub mod builtins;
 
 use crate::shell::Shell;
 use crate::shell::exec::builtins::mkdir;
-use crate::shell::parse::Cmd;
 use crate::shell::exec::builtins::write_;
+use crate::shell::parse::Cmd;
 
 use std::collections::HashMap;
 use std::ffi::OsString;
 
 pub use builtins::{
-    base::{echo, exit, help, pwd, touch},
+    base::{clear, echo, exit, help, pwd, touch},
     cat, cd, copy, list, remove,
 };
 
@@ -54,6 +54,7 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
     HashMap::from([
         ("help".to_string(), help as fn(&mut Shell, &Cmd)),
         ("exit".to_string(), exit as fn(&mut Shell, &Cmd)),
+        ("clear".to_string(), clear as fn(&mut Shell, &Cmd)),
         ("echo".to_string(), echo as fn(&mut Shell, &Cmd)),
         ("pwd".to_string(), pwd as fn(&mut Shell, &Cmd)),
         ("touch".to_string(), touch as fn(&mut Shell, &Cmd)),
