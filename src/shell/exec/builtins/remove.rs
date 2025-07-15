@@ -1,23 +1,23 @@
 use super::*;
 
-use io::*;
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::{
     fs::{self, Metadata, metadata, remove_dir_all, remove_file},
-    io,
+    io::*,
+    os::unix::fs::{MetadataExt, PermissionsExt},
 };
+
 use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn rm(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() == 0 {
-        write_("usage: rm [-r] file ...\nunlink [--] file\n");
+        println!("usage: rm [-r] file ...\nunlink [--] file");
     }
 
     for path in &command.args {
         let is_exist = match fs::exists(path) {
             Ok(b) => b,
             Err(err) => {
-                write_(&format!("{:?}\n", err));
+                println!("{:?}", err);
                 return;
             }
         };
@@ -25,28 +25,28 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
             let data_of_target = match metadata(path) {
                 Ok(data) => data,
                 Err(err) => {
-                    write_(&format!("{:?}\n", err));
+                    println!("{:?}", err);
                     return;
                 }
             };
             if data_of_target.is_dir() {
                 let flags: String = command.flags.iter().map(|c| c.to_string()).collect();
                 if command.flags.len() == 0 {
-                    write_(&format!("{}: {}: {}\n", command.exec, path, "is a directory"));
+                    println!("{}: {}: {}", command.exec, path, "is a directory");
                     return;
                 } else if command.flags.len() > 1 || flags != "r" {
-                    write_(&format!(
-                        "{}: illegal option -- {}\nusage: rm [-r] file ...\nunlink [--] file\n",
+                    println!(
+                        "{}: illegal option -- {}\nusage: rm [-r] file ...\nunlink [--] file",
                         command.exec, flags
-                    ));
+                    );
                     return;
                 } else {
                     if can_remove_directly(data_of_target, path) {
                         match remove_dir_all(path) {
-                            Ok(_) => return,
+                            Ok(_) => continue,
                             Err(error) => match error.kind() {
                                 ErrorKind::PermissionDenied => {
-                                    write_(&format!("{}: {}: {}\n", command.exec, path, "Permission denied"))
+                                    println!("{}: {}: {}", command.exec, path, "Permission denied")
                                 }
                                 _ => return,
                             },
@@ -59,27 +59,38 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                 }
             }
         } else {
-            write_(&format!(
-                "{}: {}: {}\n",
+            println!(
+                "{}: {}: {}",
                 command.exec, path, "No such file or directory"
-            ));
+            );
         }
     }
 }
 
 pub fn can_remove_directly(data_of_target: Metadata, path: &String) -> bool {
-    if data_of_target.permissions().mode() & 0o777 == 0o444 {
+    if data_of_target.permissions().mode() & 0o200 == 0 {
         let uid = data_of_target.uid();
         let gid = data_of_target.gid();
-        let user_name = get_user_by_uid(uid).unwrap();
-        let group_name = get_group_by_gid(gid).unwrap();
+        let user_name = match get_user_by_uid(uid) {
+            Some(user) => user,
+            None => {
+                println!("we can't get the user name");
+                return false;
+            }
+        };
+        let group_name = match get_group_by_gid(gid) {
+            Some(group) => group,
+            None => {
+                println!("we can't get the group name");
+                return false;
+            }
+        };
         write_(&format!(
             "override r--r--r-- {}/{} for {}? ",
             user_name.name().to_string_lossy(),
             group_name.name().to_string_lossy(),
             path
         ));
-        io::stdout().flush().unwrap();
 
         let mut response: String = String::new();
         let _ = io::stdin().read_line(&mut response);

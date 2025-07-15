@@ -2,16 +2,16 @@ use super::*;
 
 use std::{
     fs::{self, metadata},
-    io::ErrorKind,
+    io::*,
     os::unix::fs::PermissionsExt,
 };
 
 pub fn cp(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() < 2 {
-        write_("usage: cp source_file target_file\n       cp source_file ... target_directory\n");
+        println!("usage: cp source_file target_file\n       cp source_file ... target_directory");
         return;
     }
-    write_(&format!("{:?}\n", command));
+    println!("{:?}", command);
     let sources = command.args[0..command.args.len() - 1].to_vec();
     let target = &command.args[command.args.len() - 1];
     if sources.len() == 1 {
@@ -20,27 +20,27 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
         let data_of_target = match metadata(target) {
             Ok(data) => data,
             Err(error) => {
-                write_(&format!("{:?}\n", error));
+                println!("{:?}", error);
                 return;
             }
         };
         if !data_of_target.is_dir() {
-            write_(&format!("{}: {} {}\n", command.exec, target, "is not a directory"));
+            println!("{}: {} {}", command.exec, target, "is not a directory");
             return;
         }
         for source in &sources {
             let data_of_source = match metadata(source) {
                 Ok(data) => data,
                 Err(error) => {
-                    write_(&format!("{:?}\n", error));
+                    println!("{:?}", error);
                     return;
                 }
             };
             if data_of_source.is_dir() {
-                write_(&format!(
-                    "{}: {} {}\n",
+                println!(
+                    "{}: {} {}",
                     command.exec, source, "is a directory (not copied)."
-                ));
+                );
                 continue;
             }
             let content: String = match fs::read_to_string(source) {
@@ -50,53 +50,44 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                     return;
                 }
             };
-            create_file(target, &content, source, &command.exec);
-            // copy_perms(data_of_source, )
+            match create_file(target, &content, source, &command.exec) {
+                res => {
+                    if res.is_empty() {
+                        return;
+                    } else {
+                        println!("{:?}", res);
+                        copy_perms(source, &res);
+                    }
+                }
+            }
         }
     }
 }
 
 pub fn one_source(source: &String, command: &String, target: &String) {
     if source == target {
-        write_(&format!(
-            "{}: {} and {} {}\n",
+        println!(
+            "{}: {} and {} {}",
             command, source, target, "are identical (not copied)."
-        ));
+        );
         return;
     }
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
         Err(error) => {
-            write_(&format!("{:?}\n", error));
+            println!("{:?}", error);
             return;
         }
     };
     if data_of_source.is_dir() {
-        write_(&format!("{}: {} {}\n", command, source, "is a directory (not copied)."));
+        println!("{}: {} {}", command, source, "is a directory (not copied).");
         return;
     }
-    // println!("{:?}", data_of_source);
-    // let is_exist = match fs::exists(target) {
-    //     Ok(b) => b,
-    //     Err(err) => {
-    //         println!("{:?}", err);
-    //         return;
-    //     }
-    // };
-    // println!("{:?}",is_exist);
-    // let data_of_target = match metadata(target) {
-    //     Ok(data) => data,
-    //     Err(error) => match error.kind() {
-    //         ErrorKind::NotFound => {create_file(target); return},
-    //         _ => return
-    //     },
-    // };
-    // println!("data_of_target {:?}", data_of_target);
     let content: String = match fs::read_to_string(source) {
         Ok(data) => data,
         Err(error) => match error.kind() {
             ErrorKind::PermissionDenied => {
-                write_(&format!("{}: {}: {}\n", command, source, "Permission denied"));
+                println!("{}: {}: {}", command, source, "Permission denied");
                 return;
             }
             _ => {
@@ -105,41 +96,57 @@ pub fn one_source(source: &String, command: &String, target: &String) {
             }
         },
     };
-    create_file(target, &content, source, command);
+    match create_file(target, &content, source, command) {
+        res => {
+            if res.is_empty() {
+                return;
+            } else {
+                println!("{:?}", res);
+                copy_perms(source, &res);
+            }
+        }
+    }
 }
 
-pub fn create_file(path: &String, content: &String, source: &String, command: &String) {
-    match fs::write(path, content) {
-        Ok(_) => return,
+pub fn create_file(path: &String, content: &String, source: &String, command: &String) -> String {
+    match fs::write(path, content.trim()) {
+        Ok(_) => {}
         Err(error) => match error.kind() {
             ErrorKind::IsADirectory => {
                 let new_path = &format!("{}/{}", path, source);
-                match fs::write(new_path, content) {
-                    Ok(_) => return,
-                    Err(_) => {
-                        create_file(new_path, content, source, command);
-                        copy_perms(source, new_path);
-                        return;
-                    }
-                }
+                create_file(new_path, content, source, command);
+                return new_path.clone();
             }
             ErrorKind::PermissionDenied => {
-                write_(&format!("{}: {}: {}\n", command, path, "Permission denied"));
-                return;
+                println!("{}: {}: {}", command, path, "Permission denied");
+                return "".to_string();
+            }
+            ErrorKind::NotADirectory => {
+                println!(
+                    "{}: {}: {}",
+                    command,
+                    path.trim_end_matches("/"),
+                    "is not a directory"
+                );
+                return "".to_string();
+            }
+            ErrorKind::NotFound => {
+                println!("{}: {}: {}", command, path, "Not Fount");
+                return "".to_string();
             }
             _ => {
-                write_(&format!("{:?}\n", error));
+                return "".to_string();
             }
         },
     };
-    copy_perms(source, path);
+    path.clone()
 }
 
 pub fn copy_perms(source: &String, target: &String) {
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
         Err(error) => {
-            write_(&format!("{:?}\n", error));
+            println!("{:?}", error);
             return;
         }
     };
@@ -147,7 +154,7 @@ pub fn copy_perms(source: &String, target: &String) {
     let data_of_target = match metadata(&target) {
         Ok(data) => data,
         Err(error) => {
-            write_(&format!("{:?}\n", error));
+            println!("{:?}", error);
             return;
         }
     };

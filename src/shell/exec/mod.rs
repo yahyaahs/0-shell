@@ -1,8 +1,6 @@
 pub mod builtins;
 
 use crate::shell::Shell;
-use crate::shell::exec::builtins::mkdir;
-use crate::shell::exec::builtins::write_;
 use crate::shell::parse::Cmd;
 
 use std::collections::HashMap;
@@ -10,7 +8,7 @@ use std::ffi::OsString;
 
 pub use builtins::{
     base::{clear, echo, exit, help, pwd, touch},
-    cat, cd, copy, list, remove,
+    cat, cd, copy, list, mkdir, mv, remove, write_,
 };
 
 unsafe extern "C" {
@@ -58,8 +56,9 @@ pub fn get_builtins() -> HashMap<String, fn(&mut Shell, &Cmd)> {
         ("echo".to_string(), echo as fn(&mut Shell, &Cmd)),
         ("pwd".to_string(), pwd as fn(&mut Shell, &Cmd)),
         ("touch".to_string(), touch as fn(&mut Shell, &Cmd)),
-        ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)), // chang ls signature
+        ("ls".to_string(), list::ls as fn(&mut Shell, &Cmd)),
         ("cd".to_string(), cd::cd as fn(&mut Shell, &Cmd)),
+        ("mv".to_string(), mv::mv as fn(&mut Shell, &Cmd)),
         ("cat".to_string(), cat::cat as fn(&mut Shell, &Cmd)),
         ("mkdir".to_string(), mkdir::mkdir as fn(&mut Shell, &Cmd)),
         ("rm".to_string(), remove::rm as fn(&mut Shell, &Cmd)),
