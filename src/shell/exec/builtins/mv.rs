@@ -5,7 +5,7 @@ use crate::shell::exec::builtins::{
     mkdir::create_folder,
 };
 
-use std::fs::{exists, metadata, read_dir, read_to_string, remove_dir_all, remove_file};
+use std::fs::{exists, metadata, read_dir, read_to_string, remove_dir, remove_dir_all, remove_file};
 
 pub fn mv(_: &mut Shell, command: &Cmd) {
     let sources = &command.args[..command.args.len() - 1].to_vec();
@@ -35,26 +35,32 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
 
             if meta_data_source.is_dir() {
                 println!("moving dir");
-                move_dir(source, target, &command.exec);
+                match move_dir(source, target, &command.exec) {
+                    Some(_) => {},
+                    None => return
+                }
             } else {
                 println!("moving file");
-                move_file(source, target, &command.exec)
+                match move_file(source, target, &command.exec) {
+                    Some(_) => {},
+                    None => return
+                }
             }
         }
     }
 }
 
-pub fn move_dir(s: &String, target: &String, comand: &String) {
+pub fn move_dir(s: &String, target: &String, comand: &String) -> Option<bool>{
     let target_meta_data = match metadata(target) {
         Ok(data) => data,
         Err(error) => {
             println!("error metadata in move dir{:?}", error);
-            return;
+            return None;
         }
     };
     if !target_meta_data.is_dir() {
         println!("{}: rename {} to {}: Not a directory", comand, s, target);
-        return;
+        return None;
     }
     let holder: Vec<String> = s.split("/").map(|f| f.to_string()).collect();
     let s1 = &holder[holder.len() - 1];
@@ -64,7 +70,8 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
         Ok(dir) => dir,
         Err(error) => {
             println!("error read dir in move dir {:?}", error);
-            return;
+            let _ = remove_dir(&format!("{}/{}",target, s1));
+            return None
         }
     };
 
@@ -73,7 +80,8 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
             Ok(d) => d,
             Err(error) => {
                 println!("error Dir entry in move dir{:?}", error);
-                return;
+                let _ = remove_dir(&format!("{}/{}",target, s1));
+                return None;
             }
         };
         let d_path = d.path().to_string_lossy().to_string();
@@ -81,32 +89,46 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
             Ok(data) => data,
             Err(error) => {
                 println!("error metadata in move dir{:?}", error);
-                return;
+                let _ = remove_dir(&format!("{}/{}",target, s1));
+                return None;
             }
         };
         if d_meta_data.is_dir() {
             println!("rah flwest dir");
-            move_dir(&d_path, &target, comand)
+            match move_dir(&d_path, &target, comand) {
+                Some(_) => {},
+                None => {
+                    let _ = remove_dir(&format!("{}/{}",target, s1));
+                    return None
+                }
+            }
         } else {
             println!("rah flwest file");
-            move_file(&d_path, &format!("{}/{}", target, s1), comand)
+            match move_file(&d_path, &format!("{}/{}", target, s1), comand) {
+                Some(_) => {},
+                None => {
+                    let _ = remove_dir(&format!("{}/{}",target, s1));
+                    return None
+                },
+            }
         }
     }
     match remove_dir_all(s) {
-        Ok(_) => {}
+        Ok(_) => Some(true),
         Err(e) => {
             println!("is_exist mv error {:?}", e);
-            return;
+            let _ = remove_dir(&format!("{}/{}",target, s1));
+            return None;
         }
     }
 }
 
-pub fn move_file(source: &String, target: &String, comand: &String) {
+pub fn move_file(source: &String, target: &String, comand: &String) -> Option<bool>{
     let is_exist = match exists(target) {
         Ok(check) => check,
         Err(err) => {
             println!("is_exist mv error {:?}", err);
-            return;
+            return None;
         }
     };
     println!("target {}", is_exist);
@@ -115,44 +137,69 @@ pub fn move_file(source: &String, target: &String, comand: &String) {
             println!(
                 "{}: rename {} to {}: No such file or directory",
                 comand, source, target
-            )
+            );
+            return None
         } else {
-            rename_file_or_move(source, target, comand);
+            match rename_file_or_move(source, target, comand) {
+                Some(_) => return Some(true),
+                None => return None,
+            }
         }
     } else {
-        rename_file_or_move(source, target, comand);
+        match rename_file_or_move(source, target, comand) {
+            Some(_) => return Some(true),
+            None => return None,
+        }
     }
 }
 
-pub fn rename_file_or_move(source: &String, target: &String, comand: &String) {
+pub fn rename_file_or_move(source: &String, target: &String, comand: &String) -> Option<bool>{
     let content: String = match read_to_string(source) {
         Ok(data) => data,
         Err(error) => {
             eprintln!("Error reading file: {} {}", source, error);
-            return;
+            return None;
         }
     };
 
-    create_and_remove(target, &content, source, comand);
+    match create_and_remove(target, &content, source, comand) {
+        Some(_) => return Some(true),
+        None => return None,
+    }
 }
 
-pub fn create_and_remove(target: &String, content: &String, source: &String, comand: &String) {
+pub fn create_and_remove(target: &String, content: &String, source: &String, comand: &String) -> Option<bool>{
     let holder: Vec<String> = source.split("/").map(|f| f.to_string()).collect();
     let s = &holder[holder.len() - 1];
     match create_file(target, &content, s, comand) {
-        res => {
-            if res.is_empty() {
-                return;
-            } else {
-                copy_perms(source, &res);
-                let _ = match remove_file(source) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        println!("error in removing after rename a file {:?}", err);
-                        return;
-                    }
-                };
-            }
+        Some(path) => {
+            copy_perms(source, &path);
+            let _ = match remove_file(source) {
+                Ok(_) => return Some(true),
+                Err(err) => {
+                    println!("error in removing after rename a file {:?}", err);
+                    return None;
+                }
+            };
         }
-    }
+        None => return None
+    };
+
+    // match create_file(target, &content, s, comand) {
+        
+    //     res => {
+    //         if res.is_empty() {
+    //             return;
+    //         } else {
+    //             copy_perms(source, &res);
+    //             let _ = match remove_file(source) {
+    //                 Ok(_) => {}
+    //                 Err(err) => {
+    //                     println!("error in removing after rename a file {:?}", err);
+    //                     return;
+    //                 }
+    //             };
+    //         }
+    //     }
+    // }
 }

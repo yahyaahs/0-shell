@@ -51,14 +51,10 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                 }
             };
             match create_file(target, &content, source, &command.exec) {
-                res => {
-                    if res.is_empty() {
-                        return;
-                    } else {
-                        println!("{:?}", res);
-                        copy_perms(source, &res);
-                    }
+                Some(path) => {
+                    copy_perms(source, &path);
                 }
+                None => return
             }
         }
     }
@@ -97,29 +93,26 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         },
     };
     match create_file(target, &content, source, command) {
-        res => {
-            if res.is_empty() {
-                return;
-            } else {
-                println!("{:?}", res);
-                copy_perms(source, &res);
-            }
+        Some(path) => {
+            copy_perms(source, &path);
+
         }
+        None => return
     }
 }
 
-pub fn create_file(path: &String, content: &String, source: &String, command: &String) -> String {
+pub fn create_file(path: &String, content: &String, source: &String, command: &String) -> Option<String> {
     match fs::write(path, content.trim()) {
-        Ok(_) => {}
+        Ok(_) => Some(path.clone()),
         Err(error) => match error.kind() {
             ErrorKind::IsADirectory => {
                 let new_path = &format!("{}/{}", path, source);
                 create_file(new_path, content, source, command);
-                return new_path.clone();
+                return Some(new_path.clone());
             }
             ErrorKind::PermissionDenied => {
                 println!("{}: {}: {}", command, path, "Permission denied");
-                return "".to_string();
+                None
             }
             ErrorKind::NotADirectory => {
                 println!(
@@ -128,18 +121,18 @@ pub fn create_file(path: &String, content: &String, source: &String, command: &S
                     path.trim_end_matches("/"),
                     "is not a directory"
                 );
-                return "".to_string();
+                return None;
             }
             ErrorKind::NotFound => {
                 println!("{}: {}: {}", command, path, "Not Fount");
-                return "".to_string();
+                return None;
             }
             _ => {
-                return "".to_string();
+                return None;
             }
         },
     };
-    path.clone()
+    Some(path.clone())
 }
 
 pub fn copy_perms(source: &String, target: &String) {
