@@ -6,14 +6,21 @@ use std::{
     os::unix::fs::PermissionsExt,
 };
 
-pub fn cp(_shell: &mut Shell, command: &Cmd) {
+pub fn cp(shell: &mut Shell, command: &Cmd) {
     if command.args.len() < 2 {
         eprintln!("usage: cp source_file target_file\n       cp source_file ... target_directory");
         return;
     }
     let sources = command.args[0..command.args.len() - 1].to_vec();
     let target = &command.args[command.args.len() - 1];
+    // let curent_dir = &shell.cwd.to_string_lossy().to_string();
+    // if target == "." || target == "./"{
+    //     println!("hanni");
+    //     target = curent_dir;
+    // }
+    // println!("{}",target);
     if sources.len() == 1 {
+        // let source : Vec<String> = sources[0].split("/").map(|f| f.to_string()).collect();
         one_source(&sources[0], &command.exec, target);
     } else {
         let data_of_target = match metadata(target) {
@@ -60,6 +67,7 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
 }
 
 pub fn one_source(source: &String, command: &String, target: &String) {
+
     if source == target {
         eprintln!(
             "{}: {} and {} {}",
@@ -91,6 +99,7 @@ pub fn one_source(source: &String, command: &String, target: &String) {
             }
         },
     };
+   
     match create_file(target, &content, source, command) {
         Some(path) => {
             copy_perms(source, &path);
@@ -101,12 +110,22 @@ pub fn one_source(source: &String, command: &String, target: &String) {
 }
 
 pub fn create_file(path: &String, content: &String, source: &String, command: &String) -> Option<String> {
+    let s : Vec<String> = source.split("/").map(|f| f.to_string()).collect();
+    let s1 = &s[s.len() -1];
     match fs::write(path, content.trim()) {
         Ok(_) => Some(path.clone()),
         Err(error) => match error.kind() {
             ErrorKind::IsADirectory => {
-                let new_path = &format!("{}/{}", path, source);
-                create_file(new_path, content, source, command);
+                if path.ends_with(s1) {
+                    eprintln!("cp: cannot overwrite directory {} with non-directory {}", format!("{}/{}",path,s1), source);
+                    return None
+                }
+                let new_path = &format!("{}/{}", path, &s1);
+
+                match create_file(new_path, content, source, command) {
+                    Some(_) => {}
+                    None => return None
+                }
                 return Some(new_path.clone());
             }
             ErrorKind::PermissionDenied => {
@@ -127,6 +146,7 @@ pub fn create_file(path: &String, content: &String, source: &String, command: &S
                 return None;
             }
             _ => {
+                eprintln!("oui {}",error);
                 return None;
             }
         },
