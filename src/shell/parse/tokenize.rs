@@ -32,6 +32,7 @@ pub fn scan_command(input: &mut String, is_empty: bool) -> Option<State> {
     }
 
     if let Some(q) = in_quote {
+        input.push('\n');
         if q == '\"' {
             return Some(State::Quote("dquote".to_string()));
         } else {
@@ -56,6 +57,14 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
 
     for arg in all_tokens {
         if arg.starts_with('-') {
+            if arg == "-".to_string() {
+                if valid_flags(&exec, &vec![arg.clone()]) {
+                    flags.push(arg);
+                    continue;
+                } else {
+                    return Err(format!("{}: invalid option -- '-'\n", exec));
+                }
+            }
             let new_vec: Vec<String> = arg
                 .trim_start_matches('-')
                 .chars()
@@ -76,6 +85,7 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
         }
     }
 
+    println!("cmd :{:?} {:?}", flags, args);
     Ok(Cmd { exec, flags, args })
 }
 
@@ -96,8 +106,6 @@ fn tokenize(input: &str) -> Vec<String> {
                         chars.next();
                         if next_char == 'n' {
                             current.push('\n'); // count \n
-                        } else if next_char == '"' || next_char == '\'' {
-                            current.push(next_char); // count quoat
                         } else {
                             current.push('\\'); // count it
                             current.push(next_char);
