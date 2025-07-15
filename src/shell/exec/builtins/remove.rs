@@ -10,7 +10,8 @@ use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn rm(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() == 0 {
-        println!("usage: rm [-r] file ...\nunlink [--] file");
+        eprintln!("usage: rm [-r] file ...\nunlink [--] file");
+        return
     }
     
     for path in &command.args {
@@ -21,7 +22,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
         let is_exist = match fs::exists(path) {
             Ok(b) => b,
             Err(err) => {
-                println!("{:?}", err);
+                eprintln!("{:?}", err);
                 return;
             }
         };
@@ -29,29 +30,28 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
             let data_of_target = match metadata(path) {
                 Ok(data) => data,
                 Err(err) => {
-                    println!("{:?}", err);
+                    eprintln!("{:?}", err);
                     return;
                 }
             };
             if data_of_target.is_dir() {
                 let flags: String = command.flags.iter().map(|c| c.to_string()).collect();
                 if command.flags.len() == 0 {
-                    println!("{}: {}: {}", command.exec, path, "is a directory");
+                    eprintln!("{}: {}: {}", command.exec, path, "is a directory");
                     return;
                 } else if command.flags.len() > 1 || flags != "r" {
-                    println!(
+                    eprintln!(
                         "{}: illegal option -- {}\nusage: rm [-r] file ...\nunlink [--] file",
                         command.exec, flags
                     );
                     return;
                 } else {
                     if can_remove_directly(data_of_target, path) {
-                        println!("dir to remove {}",path);
                         match remove_dir_all(path) {
                             Ok(_) => continue,
                             Err(error) => match error.kind() {
                                 ErrorKind::PermissionDenied => {
-                                    println!("{}: {}: {}", command.exec, path, "Permission denied")
+                                    eprintln!("{}: {}: {}", command.exec, path, "Permission denied")
                                 }
                                 _ => return,
                             },
@@ -64,7 +64,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                 }
             }
         } else {
-            println!(
+            eprintln!(
                 "{}: {}: {}",
                 command.exec, path, "No such file or directory"
             );
@@ -79,14 +79,14 @@ pub fn can_remove_directly(data_of_target: fs::Metadata, path: &String) -> bool 
         let user_name = match get_user_by_uid(uid) {
             Some(user) => user,
             None => {
-                println!("we can't get the user name");
+                eprintln!("we can't get the user name");
                 return false;
             }
         };
         let group_name = match get_group_by_gid(gid) {
             Some(group) => group,
             None => {
-                println!("we can't get the group name");
+                eprintln!("we can't get the group name");
                 return false;
             }
         };
