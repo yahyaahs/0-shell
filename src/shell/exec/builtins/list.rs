@@ -2,7 +2,7 @@ use super::*;
 
 use chrono::{DateTime, Local};
 use users::{get_group_by_gid, get_user_by_uid};
-
+use std::os::unix::fs::FileTypeExt;
 use std::{
     fs::{self, DirEntry, read_link, metadata},
     os::unix::fs::{MetadataExt, PermissionsExt},
@@ -15,6 +15,10 @@ pub enum Types {
     Dir(OsString),
     Executable(OsString),
     Symlink(OsString),
+    CharDevice(OsString),
+    BlockDevice(OsString),
+    Socket(OsString),
+    Pipe(OsString),
     NotSupported,
     Error,
 }
@@ -22,13 +26,22 @@ pub enum Types {
 pub fn check_type(name: &DirEntry) -> Types {
     match name.metadata() {
         Ok(meta) => {
-            if meta.is_symlink() {
+            let ft = meta.file_type();
+            if ft.is_symlink() {
                 return Types::Symlink(read_link(name.path()).unwrap().into_os_string());
-            } else if meta.permissions().mode() & 0o111 != 0 && meta.is_file() {
+            } else if ft.is_char_device() {
+                return Types::CharDevice(name.file_name());
+            } else if ft.is_block_device() {
+                return Types::BlockDevice(name.file_name());
+            } else if ft.is_socket() {
+                return Types::Socket(name.file_name());
+            } else if ft.is_fifo() {
+                return Types::Pipe(name.file_name());
+            } else if meta.permissions().mode() & 0o111 != 0 && ft.is_file() {
                 return Types::Executable(name.file_name());
-            } else if meta.is_file() {
+            } else if ft.is_file() {
                 return Types::File(name.file_name());
-            } else if meta.is_dir() {
+            } else if ft.is_dir() {
                 return Types::Dir(name.file_name());
             } else {
                 return Types::NotSupported;
@@ -187,6 +200,13 @@ fn handle_show_entries(args: &Cmd) {
     }
 }
 
+fn major(dev: u64) -> u64 {
+    ((dev >> 8) & 0xfff)
+}
+fn minor(dev: u64) -> u64 {
+    (dev & 0xff) | ((dev >> 12) & 0xfff00)
+}
+
 pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let mut output = String::new();
     let show = args.flags.contains(&"a".to_string());
@@ -252,9 +272,17 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                                 Err(_) => 0,
                             };
                             let (username, group) = get_group_and_user(&elems);
-                            let size = match elems.metadata() {
-                                Ok(meta) => meta.len(),
-                                Err(_) => 0,
+                            let (size_str, _is_device) = match elems.metadata() {
+                                Ok(meta) => {
+                                    let file_type = meta.file_type();
+                                    if file_type.is_char_device() || file_type.is_block_device() {
+                                        let rdev = meta.rdev();
+                                        (format!("{}, {}", major(rdev), minor(rdev)), true)
+                                    } else {
+                                        (format!("{}", meta.len()), false)
+                                    }
+                                }
+                                Err(_) => ("?".to_string(), false),
                             };
                             let date = get_time(&elems);
                             match check_type(&elems) {
@@ -280,23 +308,22 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                                         output.push_str(&format!("{}{}{}", green, name_str, reset));
                                     }
                                 }
-                                Types::Symlink(name) => {
-                                    let name_str = name.to_string_lossy();
+                                Types::Symlink(_name) => {
+                                    let file_name_os = elems.file_name();
+                                    let file_name = file_name_os.to_string_lossy();
+                                    let target = read_link(elems.path()).unwrap_or_default().to_string_lossy().to_string();
+                                    let display = format!("{} -> {}", file_name, target);
                                     if show {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
-                                    } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
+                                        output.push_str(&display);
+                                    } else if !file_name.starts_with('.') {
+                                        output.push_str(&display);
                                     }
                                 }
-                                Types::File(name) => {
+                                Types::File(name)
+                                | Types::CharDevice(name)
+                                | Types::BlockDevice(name)
+                                | Types::Socket(name)
+                                | Types::Pipe(name) => {
                                     let name_str = name.to_string_lossy();
                                     if show {
                                         output.push_str(&name_str);
@@ -309,7 +336,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                             if !output.is_empty() {
                                 write_(&format!(
                                     "{} {} {} {} {:>5} {:>5} {}\n",
-                                    perms, nlinks, username, group, size, date, output
+                                    perms, nlinks, username, group, size_str, date, output
                                 ));
                                 output.clear();
                             }
@@ -325,48 +352,49 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                                     let colored = format!("{}{}{}", blue, display, reset);
                                     if show {
                                         output.push_str(&colored);
+                                        output.push(' ');
                                     } else if !name_str.starts_with('.') {
                                         output.push_str(&colored);
+                                        output.push(' ');
                                     }
                                 }
                                 Types::Executable(name) => {
                                     let name_str = name.to_string_lossy();
                                     if show {
-                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                        output.push_str(&format!("{}{}{} ", green, name_str, reset));
                                     } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!("{}{}{}", green, name_str, reset));
+                                        output.push_str(&format!("{}{}{} ", green, name_str, reset));
                                     }
                                 }
-                                Types::Symlink(name) => {
-                                    let name_str = name.to_string_lossy();
+                                Types::Symlink(_name) => {
+                                    let file_name_os = elems.file_name();
+                                    let file_name = file_name_os.to_string_lossy();
+                                    let target = read_link(elems.path()).unwrap_or_default().to_string_lossy().to_string();
+                                    let display = format!("{} -> {} ", file_name, target);
                                     if show {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
-                                    } else if !name_str.starts_with('.') {
-                                        output.push_str(&format!(
-                                            "{} -> {}",
-                                            elems.path().to_string_lossy(),
-                                            name_str
-                                        ));
+                                        output.push_str(&display);
+                                    } else if !file_name.starts_with('.') {
+                                        output.push_str(&display);
                                     }
                                 }
-                                Types::File(name) => {
+                                Types::File(name)
+                                | Types::CharDevice(name)
+                                | Types::BlockDevice(name)
+                                | Types::Socket(name)
+                                | Types::Pipe(name) => {
                                     let name_str = name.to_string_lossy();
                                     if show {
-                                        output.push_str(&name_str);
+                                        output.push_str(&format!("{} ", name_str));
                                     } else if !name_str.starts_with('.') {
-                                        output.push_str(&name_str);
+                                        output.push_str(&format!("{} ", name_str));
                                     }
                                 }
                                 _ => (),
                             }
-                            if !output.is_empty() {
-                                write_(&format!("{}\n", output));
-                                output.clear();
-                            }
+                        }
+                        if !output.is_empty() && !args.flags.contains(&"l".to_string()) {
+                            write_(&format!("{}\n", output));
+                            output.clear();
                         }
                     }
                 } else {
