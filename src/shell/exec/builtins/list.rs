@@ -312,12 +312,12 @@ fn print_entry_long(
     let nlinks = meta.nlink();
     let (username, group) = get_group_and_user(elems);
     let file_type = meta.file_type();
-    let (size_str, is_device) = {
+    let size_str = {
         if file_type.is_char_device() || file_type.is_block_device() {
             let rdev = meta.rdev();
-            (format!("{}, {}", major(rdev), minor(rdev)), true)
+            format!("{}, {}", major(rdev), minor(rdev))
         } else {
-            (format!("{}", meta.len()), false)
+            format!("{}", meta.len())
         }
     };
     let date = get_time(elems);
