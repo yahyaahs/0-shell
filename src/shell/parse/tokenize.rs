@@ -59,7 +59,7 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
         if arg.starts_with('-') {
             if arg == "-".to_string() {
                 if valid_flags(&exec, &vec![arg.clone()]) {
-                    flags.push(arg);
+                    args.push(arg);
                     continue;
                 } else {
                     return Err(format!("{}: invalid option -- '-'\n", exec));
@@ -189,6 +189,13 @@ fn valid_flags(exec: &str, args: &Vec<String>) -> bool {
         "rm" => {
             args.iter()
                 .filter(|f| **f != "r".to_string())
+                .collect::<Vec<&String>>()
+                .len()
+                == 0
+        }
+        "cat" => {
+            args.iter()
+                .filter(|f| **f != "-".to_string())
                 .collect::<Vec<&String>>()
                 .len()
                 == 0
