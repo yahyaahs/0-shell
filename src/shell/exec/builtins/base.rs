@@ -33,32 +33,6 @@ pub fn pwd(shell: &mut Shell, _cmd: &Cmd) {
     }
 }
 
-pub fn touch(_shell: &mut Shell, cmd: &Cmd) {
-    if cmd.args.is_empty() {
-        write_("touch: missing file operand\n");
-        return;
-    }
-
-    for file in &cmd.args {
-        let path = PathBuf::from(file);
-
-        match OpenOptions::new().create(true).append(true).open(&path) {
-            Ok(_) => {}
-            Err(err) => match err.kind() {
-                ErrorKind::PermissionDenied => {
-                    write_(&format!("touch: {}: Permission denied\n", file))
-                }
-                ErrorKind::NotFound => write_(&format!(
-                    "touch: cannot touch {}: No such file or directory\n",
-                    file
-                )),
-                ErrorKind::IsADirectory => write_(&format!("touch: {}: Is a directory\n", file)),
-                _ => write_(&format!("touch: {}: {}\n", file, err)),
-            },
-        }
-    }
-}
-
 pub fn help(_shell: &mut Shell, cmd: &Cmd) {
     let help_texts = get_help_texts();
 
@@ -95,10 +69,6 @@ fn get_help_texts() -> HashMap<&'static str, &'static str> {
     map.insert(
         "pwd",
         "pwd: Print the current working directory.\n\tUsage: pwd",
-    );
-    map.insert(
-        "touch",
-        "touch [file...]: Create empty file(s).\n\tUsage: touch [file]",
     );
     map.insert(
         "ls",
