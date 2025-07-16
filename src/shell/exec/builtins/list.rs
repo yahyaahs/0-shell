@@ -198,13 +198,20 @@ pub fn get_time(args: &DirEntry) -> String {
         formated.format("%b %e  %Y").to_string()
     }
 }
-fn handle_show_entries(args: &Cmd, nlink_w: usize, owner_w: usize, group_w: usize, size_w: usize, output: &mut Vec<String>) {
+fn handle_show_entries(
+    args: &Cmd,
+    nlink_w: usize,
+    owner_w: usize,
+    group_w: usize,
+    size_w: usize,
+    output: &mut Vec<String>,
+) {
     let entries = [".", ".."];
     if args.flags.contains(&"l".to_string()) {
         for entry in &entries {
             if let Ok(meta) = std::fs::metadata(entry) {
                 output.push(format!(
-                    "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}",
+                    "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}\n",
                     list_args(&meta, Path::new(entry)),
                     meta.nlink(),
                     get_group_and_user_meta(&meta).0,
@@ -470,22 +477,34 @@ fn print_directory(target: &str, args: &Cmd) {
     };
     if long_listing {
         let mut total_blocks = 0;
-        if show_all {
-            if let Ok(meta) = metadata(target) {
-                total_blocks += meta.blocks();
-            }
-            if let Ok(meta) = metadata(format!("{}/..", target)) {
-                total_blocks += meta.blocks();
-            }
-        }
+
         for entry in &entries {
-            if show_all {
-                if let Ok(meta) = entry.metadata() {
-                    total_blocks += meta.blocks();
-                }
+            let filename = entry.file_name();
+            let name = filename.to_string_lossy();
+            if !show_all && name.starts_with('.') {
+                continue; 
+            }
+
+            if let Ok(meta) = entry.metadata() {
+                total_blocks += meta.blocks();
             }
         }
-        write_(&format!("total {}\n", total_blocks / 2));
+
+        if show_all {
+            let current = Path::new(target).join(".");
+            if let Ok(meta) = fs::metadata(&current) {
+                total_blocks += meta.blocks();
+            }
+
+            let parent = Path::new(target).join("..");
+            if let Ok(meta) = fs::metadata(&parent) {
+                total_blocks += meta.blocks();
+            }
+        }
+        write_(&format!(
+            "total: {}\n",
+            total_blocks / 2,
+        ));
 
         let mut nlink_w = 1;
         let mut owner_w = 1;
@@ -522,7 +541,14 @@ fn print_directory(target: &str, args: &Cmd) {
                     perms_w = perms_w.max(perms.len());
                 }
             }
-            handle_show_entries(args, nlink_w, owner_w, group_w, size_w, &mut formated_entries);
+            handle_show_entries(
+                args,
+                nlink_w,
+                owner_w,
+                group_w,
+                size_w,
+                &mut formated_entries,
+            );
         }
         for elems in entries {
             print_entry_long(
@@ -563,11 +589,14 @@ fn print_directory(target: &str, args: &Cmd) {
 
 pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let targets = get_target(args);
-    for target in targets {
+    for (i, target) in targets.iter().enumerate() {
         let meta = std::fs::metadata(&target);
         match meta {
             Ok(meta) => {
                 if meta.is_dir() {
+                    if !target.contains(".") && targets.len() >1{
+                        write_(&format!("{}:\n", &target));
+                    }
                     print_directory(&target, args);
                 } else {
                     print_file(&target, &meta, args);
@@ -576,6 +605,9 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
             Err(_) => {
                 print_error(&target);
             }
+        }
+        if i != targets.len() - 1 {
+            write_("\n");
         }
     }
 }
