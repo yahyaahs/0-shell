@@ -1,5 +1,4 @@
 use super::*;
-
 use chrono::{DateTime, Local};
 use std::fs::File;
 use std::os::unix::fs::FileTypeExt;
@@ -199,14 +198,13 @@ pub fn get_time(args: &DirEntry) -> String {
         formated.format("%b %e  %Y").to_string()
     }
 }
-fn handle_show_entries(args: &Cmd, nlink_w: usize, owner_w: usize, group_w: usize, size_w: usize) {
+fn handle_show_entries(args: &Cmd, nlink_w: usize, owner_w: usize, group_w: usize, size_w: usize, output: &mut Vec<String>) {
     let entries = [".", ".."];
     if args.flags.contains(&"l".to_string()) {
         for entry in &entries {
             if let Ok(meta) = std::fs::metadata(entry) {
-                write_(&format!(
-                    "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}
-",
+                output.push(format!(
+                    "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}",
                     list_args(&meta, Path::new(entry)),
                     meta.nlink(),
                     get_group_and_user_meta(&meta).0,
@@ -292,19 +290,18 @@ fn print_file(target: &str, meta: &std::fs::Metadata, args: &Cmd) {
 fn print_entry_long(
     elems: &DirEntry,
     args: &Cmd,
-    output: &mut String,
     nlink_w: usize,
     owner_w: usize,
     group_w: usize,
     size_w: usize,
     perms_w: usize,
+    output: &mut Vec<String>,
 ) {
     let show_all = args.flags.contains(&"a".to_string());
     let flag_f = args.flags.contains(&"F".to_string());
     let meta = match elems.metadata() {
         Ok(m) => m,
         Err(_) => {
-            output.clear();
             return;
         }
     };
@@ -337,7 +334,11 @@ fn print_entry_long(
             let target = match read_link(elems.path()) {
                 Ok(link) => link,
                 Err(err) => {
-                    println!("{} for symlink {}", err, elems.path().to_string_lossy());
+                    output.push(format!(
+                        "{} for symlink {}\n",
+                        err,
+                        elems.path().to_string_lossy()
+                    ));
                     return;
                 }
             };
@@ -351,7 +352,7 @@ fn print_entry_long(
         _ => String::new(),
     };
     if show_all || !name.starts_with('.') {
-        write_(&format!(
+        output.push(format!(
             "{:<width_p$} {:>width_n$} {:<width_o$} {:<width_g$} {:^width_s$} {} {}
 ",
             perms,
@@ -368,7 +369,6 @@ fn print_entry_long(
             width_s = size_w
         ));
     }
-    output.clear();
 }
 
 fn print_entry_short(elems: &DirEntry, args: &Cmd, output: &mut String) {
@@ -446,7 +446,7 @@ fn print_directory(target: &str, args: &Cmd) {
     let long_listing = args.flags.contains(&"l".to_string());
     let show_all = args.flags.contains(&"a".to_string());
     let readir: Result<fs::ReadDir, io::Error> = fs::read_dir(&target);
-    let mut entries: Vec<_> = match readir {
+    let entries: Vec<_> = match readir {
         Ok(rd) => {
             let mut entr = vec![];
             for el in rd {
@@ -468,7 +468,6 @@ fn print_directory(target: &str, args: &Cmd) {
             vec![]
         }
     };
-    entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     if long_listing {
         let mut total_blocks = 0;
         if show_all {
@@ -480,9 +479,7 @@ fn print_directory(target: &str, args: &Cmd) {
             }
         }
         for entry in &entries {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if show_all || !name_str.starts_with('.') {
+            if show_all {
                 if let Ok(meta) = entry.metadata() {
                     total_blocks += meta.blocks();
                 }
@@ -510,6 +507,7 @@ fn print_directory(target: &str, args: &Cmd) {
             size_w = size_w.max(size);
             perms_w = perms_w.max(perms.len());
         }
+        let mut formated_entries = Vec::new();
         if show_all {
             for special in [target, format!("{}/..", target).as_str()] {
                 if let Ok(meta) = metadata(special) {
@@ -524,34 +522,34 @@ fn print_directory(target: &str, args: &Cmd) {
                     perms_w = perms_w.max(perms.len());
                 }
             }
+            handle_show_entries(args, nlink_w, owner_w, group_w, size_w, &mut formated_entries);
         }
-        if show_all {
-            handle_show_entries(args, nlink_w, owner_w, group_w, size_w);
-        }
-        let mut output = String::new();
         for elems in entries {
-            if long_listing {
-                print_entry_long(
-                    &elems,
-                    args,
-                    &mut output,
-                    nlink_w,
-                    owner_w,
-                    group_w,
-                    size_w,
-                    perms_w,
-                );
-            } else {
-                print_entry_short(&elems, args, &mut output);
-            }
-            if !output.is_empty() && !long_listing {
-                write_(&format!("{}\n", output));
-                output.clear();
-            }
+            print_entry_long(
+                &elems,
+                args,
+                nlink_w,
+                owner_w,
+                group_w,
+                size_w,
+                perms_w,
+                &mut formated_entries,
+            )
         }
+
+        formated_entries.sort_by(|a, b| {
+            let a_is_denied = a.contains("Permission denied");
+            let b_is_denied = b.contains("Permission denied");
+            match (a_is_denied, b_is_denied) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.cmp(b),
+            }
+        });
+        write_(&formated_entries.join(""))
     } else {
         if show_all {
-            handle_show_entries(args, 1, 1, 1, 1);
+            handle_show_entries(args, 1, 1, 1, 1, &mut Vec::new());
         }
         let mut output = String::new();
         for elems in entries {
