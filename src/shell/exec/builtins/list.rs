@@ -210,20 +210,37 @@ fn handle_show_entries(
     if args.flags.contains(&"l".to_string()) {
         for entry in &entries {
             if let Ok(meta) = std::fs::metadata(entry) {
-                output.push(format!(
-                    "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}\n",
-                    list_args(&meta, Path::new(entry)),
-                    meta.nlink(),
-                    get_group_and_user_meta(&meta).0,
-                    get_group_and_user_meta(&meta).1,
-                    meta.len(),
-                    get_time_meta(&meta),
-                    entry,
-                    width_n = nlink_w,
-                    width_o = owner_w,
-                    width_g = group_w,
-                    width_s = size_w
-                ));
+                if args.flags.contains(&"F".to_string()) {
+                    output.push(format!(
+                        "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}/\n",
+                        list_args(&meta, Path::new(entry)),
+                        meta.nlink(),
+                        get_group_and_user_meta(&meta).0,
+                        get_group_and_user_meta(&meta).1,
+                        meta.len(),
+                        get_time_meta(&meta),
+                        entry,
+                        width_n = nlink_w,
+                        width_o = owner_w,
+                        width_g = group_w,
+                        width_s = size_w
+                    ));
+                } else {
+                    output.push(format!(
+                        "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}\n",
+                        list_args(&meta, Path::new(entry)),
+                        meta.nlink(),
+                        get_group_and_user_meta(&meta).0,
+                        get_group_and_user_meta(&meta).1,
+                        meta.len(),
+                        get_time_meta(&meta),
+                        entry,
+                        width_n = nlink_w,
+                        width_o = owner_w,
+                        width_g = group_w,
+                        width_s = size_w
+                    ));
+                }
             }
         }
     } else {
@@ -482,7 +499,7 @@ fn print_directory(target: &str, args: &Cmd) {
             let filename = entry.file_name();
             let name = filename.to_string_lossy();
             if !show_all && name.starts_with('.') {
-                continue; 
+                continue;
             }
 
             if let Ok(meta) = entry.metadata() {
@@ -501,10 +518,7 @@ fn print_directory(target: &str, args: &Cmd) {
                 total_blocks += meta.blocks();
             }
         }
-        write_(&format!(
-            "total: {}\n",
-            total_blocks / 2,
-        ));
+        write_(&format!("total: {}\n", total_blocks / 2,));
 
         let mut nlink_w = 1;
         let mut owner_w = 1;
@@ -594,7 +608,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
         match meta {
             Ok(meta) => {
                 if meta.is_dir() {
-                    if !target.contains(".") && targets.len() >1{
+                    if !target.contains(".") && targets.len() > 1 {
                         write_(&format!("{}:\n", &target));
                     }
                     print_directory(&target, args);
