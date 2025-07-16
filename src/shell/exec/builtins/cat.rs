@@ -25,9 +25,11 @@ pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
             if file == "-".to_string() {
                 infinit_read();
             } else {
-                let content = fs::read_to_string(file.clone());
+                let content = fs::read(file.clone());
                 match content {
-                    Ok(data) => write_(&data),
+                    Ok(data) => {
+                        write_(&data.to_vec().iter().map(|c| *c as char).collect::<String>())
+                    }
                     Err(err) => match err.kind() {
                         ErrorKind::PermissionDenied => {
                             write_(&format!("cat: {}: Permission denied\n", file))

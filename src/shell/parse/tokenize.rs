@@ -57,12 +57,12 @@ pub fn parse_command(input: &str) -> Result<Cmd, String> {
 
     for arg in all_tokens {
         if arg.starts_with('-') {
-            if arg == "-".to_string() {
+            if *arg == "-".to_string() || arg.starts_with("--") {
                 if valid_flags(&exec, &vec![arg.clone()]) {
                     args.push(arg);
                     continue;
                 } else {
-                    return Err(format!("{}: invalid option -- '-'\n", exec));
+                    return Err(format!("{}: invalid option --\n", exec));
                 }
             }
             let new_vec: Vec<String> = arg
