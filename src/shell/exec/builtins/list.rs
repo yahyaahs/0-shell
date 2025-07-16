@@ -342,9 +342,9 @@ fn print_entry_long(
         }
         Types::File(n)
         | Types::CharDevice(n)
-        | Types::BlockDevice(n)
-        | Types::Socket(n)
-        | Types::Pipe(n) => n.to_string_lossy().to_string(),
+        | Types::BlockDevice(n)=> n.to_string_lossy().to_string(),
+        Types::Socket(name) => format!("{}=", name.to_string_lossy()),
+        Types::Pipe(name)=> format!("{}|", name.to_string_lossy()),
         _ => String::new(),
     };
     if show_all || !name.starts_with('.') {
@@ -371,6 +371,7 @@ fn print_entry_long(
 fn print_entry_short(elems: &DirEntry, args: &Cmd, output: &mut String) {
     let show_all = args.flags.contains(&"a".to_string());
     let flag_f = args.flags.contains(&"F".to_string());
+    let long_list = args.flags.contains(&"l".to_string());
     match check_type(elems) {
         Types::Dir(name) => {
             let name_str = name.to_string_lossy();
@@ -395,9 +396,8 @@ fn print_entry_short(elems: &DirEntry, args: &Cmd, output: &mut String) {
                 }
             }
         }
-        Types::Symlink(_name) => {
-            let file_name_os = elems.file_name();
-            let file_name = file_name_os.to_string_lossy();
+        Types::Symlink(name) => {
+            let file_name = name.to_string_lossy();
             let display = if flag_f {
                 format!("{}@  ", file_name)
             } else {
@@ -410,11 +410,32 @@ fn print_entry_short(elems: &DirEntry, args: &Cmd, output: &mut String) {
         Types::File(name)
         | Types::CharDevice(name)
         | Types::BlockDevice(name)
-        | Types::Socket(name)
-        | Types::Pipe(name) => {
+         => {
             let name_str = name.to_string_lossy();
             if show_all || !name_str.starts_with('.') {
                 output.push_str(&format!("{}  ", name_str));
+            }
+        }
+        Types::Socket(name)=>{
+            let file_name = name.to_string_lossy();
+            let display = if flag_f || long_list {
+                format!("{}=  ", file_name)
+            } else {
+                format!("{}  ", file_name)
+            };
+            if show_all || !file_name.starts_with('.') {
+                output.push_str(&display);
+            }
+        },
+        Types::Pipe(name)=>{
+                       let file_name = name.to_string_lossy();
+            let display = if flag_f || long_list {
+                format!("{}|  ", file_name)
+            } else {
+                format!("{}  ", file_name)
+            };
+            if show_all || !file_name.starts_with('.') {
+                output.push_str(&display);
             }
         }
         _ => (),
@@ -424,7 +445,7 @@ fn print_entry_short(elems: &DirEntry, args: &Cmd, output: &mut String) {
 fn print_directory(target: &str, args: &Cmd) {
     let long_listing = args.flags.contains(&"l".to_string());
     let show_all = args.flags.contains(&"a".to_string());
-    let readir = fs::read_dir(&target);
+    let readir: Result<fs::ReadDir, io::Error> = fs::read_dir(&target);
     let mut entries: Vec<_> = match readir {
         Ok(rd) => rd.filter_map(Result::ok).collect(),
         Err(_) => {
