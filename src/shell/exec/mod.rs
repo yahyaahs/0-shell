@@ -11,40 +11,10 @@ pub use builtins::{
     cat, cd, copy, list, mkdir, mv, remove, write_,
 };
 
-unsafe extern "C" {
-    pub fn fork() -> i32;
-    pub fn wait(status: *mut i32) -> i32;
-}
-
 pub fn execution(shell: &mut Shell, command: Cmd) {
-    unsafe {
-        match shell.builtins.get(&command.exec) {
-            Some(func) => match command.exec.as_str() {
-                "cd" | "exit" => func(shell, &command),
-                _ => {
-                    let pid = fork();
-                    if pid < 0 {
-                        write_("Fork failed\n");
-                        return;
-                    } else if pid == 0 {
-                        func(shell, &command);
-                        // println!("Child process {} finished", getppid());
-                        std::process::exit(0);
-                    } else {
-                        let mut status = 0;
-                        wait(&mut status);
-                        if status != 0 {
-                            write_("error wait\n");
-                        } else {
-                            // println!("child {} finished", pid);
-                        }
-                    }
-                }
-            },
-            None => {
-                write_(&format!("Command not found: {}\n", command.exec));
-            }
-        }
+    match shell.builtins.get(&command.exec) {
+        Some(func) => func(shell, &command),
+        None => write_(&format!("Command not found: {}\n", command.exec)),
     }
 }
 

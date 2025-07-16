@@ -10,32 +10,7 @@ use shell::{
 
 use crate::shell::exec::builtins::write_;
 
-unsafe extern "C" {
-    fn signal(signal: i32, handler: extern "C" fn(i32));
-}
-
-extern "C" fn signal_handler(_signal: i32) {
-    // match stdout().flush(){
-    //     Ok(_) => {}
-    //     Err(err) => std::process::exit(1),
-    // };
-    // print!("\n{}", display_prompt());
-    // match stdout().flush(){
-    //     Ok(_) => {}
-    //     Err(err) => std::process::exit(1),
-    // };
-    write_("\n");
-    write_(&display_prompt());
-    unsafe { INIT_SHELL = true };
-}
-
-static mut INIT_SHELL: bool = false;
-
 fn main() {
-    unsafe {
-        signal(2, signal_handler);
-    }
-
     let mut shell = Shell {
         cwd: env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
         builtins: get_builtins(),
@@ -86,14 +61,6 @@ fn main() {
             };
             input.len() == 1
         };
-
-        unsafe {
-            if INIT_SHELL {
-                shell.state = State::Ready;
-                INIT_SHELL = false;
-                continue;
-            }
-        }
 
         let mut to_scan = input.trim_end_matches(|c| c == '\n').to_string();
         let state = scan_command(&mut to_scan, is_empty);
