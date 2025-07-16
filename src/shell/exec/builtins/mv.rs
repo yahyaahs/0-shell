@@ -1,9 +1,9 @@
 use super::*;
 
-use crate::shell::exec::builtins::{
+use crate::shell::exec::{builtins::{
     copy::{copy_perms, create_file},
     mkdir::create_folder,
-};
+}, remove::{demand_confirmation}};
 
 use std::fs::{exists, metadata, read_dir, read_to_string, remove_dir, remove_dir_all, remove_file};
 
@@ -62,7 +62,12 @@ pub fn move_dir(s: &String, target: &String, comand: &String) -> Option<bool>{
     }
     let holder: Vec<String> = s.split("/").map(|f| f.to_string()).collect();
     let s1 = &holder[holder.len() - 1];
-    create_folder(&format!("{}/{}", target, s1), comand);
+    match create_folder(&format!("{}/{}", target, s1), comand) {
+        Some(_) => {},
+        None => {
+            return None
+        },
+    }
     let paths = match read_dir(s) {
         Ok(dir) => dir,
         Err(error) => {
@@ -148,6 +153,16 @@ pub fn move_file(source: &String, target: &String, comand: &String) -> Option<bo
 }
 
 pub fn rename_file_or_move(source: &String, target: &String, comand: &String) -> Option<bool>{
+    let source_data = match metadata(source) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("{:?}",e);
+            return None;
+        }
+    };
+    if !demand_confirmation(source_data, source) {
+        return None;
+    }
     let content: String = match read_to_string(source) {
         Ok(data) => data,
         Err(error) => {

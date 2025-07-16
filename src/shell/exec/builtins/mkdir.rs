@@ -25,9 +25,13 @@ pub fn create_folder(folder_name: &String, comand: &String) -> Option<bool>{
             ErrorKind::AlreadyExists => {
                 eprintln!("{}: {}: {}", comand, folder_name, "File exists");
                 None
+            },
+            ErrorKind::PermissionDenied => {
+                eprintln!("{}: {}: {}", comand, folder_name, "Permission denied");
+                None
             }
             _ => {
-                eprintln!("{}: {}", comand, error);
+                eprintln!("hanni {}: {}", comand, error);
                 None
             }
         }
