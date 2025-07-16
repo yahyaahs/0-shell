@@ -518,7 +518,8 @@ fn print_directory(target: &str, args: &Cmd) {
                 total_blocks += meta.blocks();
             }
         }
-        write_(&format!("total: {}\n", total_blocks / 2,));
+        let mut formated_entries = Vec::new();
+        formated_entries.push(format!("total: {}\n", total_blocks / 2,));
 
         let mut nlink_w = 1;
         let mut owner_w = 1;
@@ -540,7 +541,6 @@ fn print_directory(target: &str, args: &Cmd) {
             size_w = size_w.max(size);
             perms_w = perms_w.max(perms.len());
         }
-        let mut formated_entries = Vec::new();
         if show_all {
             for special in [target, format!("{}/..", target).as_str()] {
                 if let Ok(meta) = metadata(special) {
@@ -578,14 +578,29 @@ fn print_directory(target: &str, args: &Cmd) {
         }
 
         formated_entries.sort_by(|a, b| {
-            let a_is_denied = a.contains("Permission denied");
-            let b_is_denied = b.contains("Permission denied");
-            match (a_is_denied, b_is_denied) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.cmp(b),
+            fn entry_priority(entry: &str) -> u8 {
+                if entry.contains("Permission denied") {
+                    0
+                } else if entry.starts_with("total: ") {
+                    1
+                } else if entry.trim_end().ends_with(" .")  {
+                    2
+                }else if  entry.trim_end().ends_with(" .."){
+                    3
+                } else {
+                    4
+                }
+            }
+
+            let pa = entry_priority(a);
+            let pb = entry_priority(b);
+
+            match pa.cmp(&pb) {
+                std::cmp::Ordering::Equal => a.cmp(b),
+                other => other,
             }
         });
+
         write_(&formated_entries.join(""))
     } else {
         if show_all {
