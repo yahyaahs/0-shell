@@ -43,8 +43,11 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                 );
                 continue;
             }
-            let content: String = match fs::read_to_string(source) {
-                Ok(data) => data,
+            let content: String = match fs::read(source) {
+                Ok(data) => {
+                    let cc = data.into_iter().map(|c| String::from(c as char)).collect();
+                    cc
+                },
                 Err(error) => {
                     eprintln!("Error reading file: {}", error);
                     return;
@@ -83,8 +86,11 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         eprintln!("{}: {} {}", command, source, "is a directory (not copied).");
         return;
     }
-    let content: String = match fs::read_to_string(source) {
-        Ok(data) => data,
+    let content: String = match fs::read(source) {
+        Ok(data) => {
+            let cc = data.into_iter().map(|c| String::from(c as char)).collect();
+            cc
+        },
         Err(error) => match error.kind() {
             ErrorKind::PermissionDenied => {
                 eprintln!("{}: {}: {}", command, source, "Permission denied");

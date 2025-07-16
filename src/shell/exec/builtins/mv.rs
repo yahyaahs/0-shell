@@ -5,7 +5,7 @@ use crate::shell::exec::{builtins::{
     mkdir::create_folder,
 }, remove::{demand_confirmation}};
 
-use std::fs::{exists, metadata, read_dir, read_to_string, remove_dir, remove_dir_all, remove_file};
+use std::fs::{exists, metadata, read_dir, read_to_string,read,  remove_dir, remove_dir_all, remove_file};
 
 pub fn mv(_: &mut Shell, command: &Cmd) {
     let sources = &command.args[..command.args.len() - 1].to_vec();
@@ -163,8 +163,11 @@ pub fn rename_file_or_move(source: &String, target: &String, comand: &String) ->
     if !demand_confirmation(source_data, source) {
         return None;
     }
-    let content: String = match read_to_string(source) {
-        Ok(data) => data,
+    let content: String = match read(source) {
+        Ok(data) => {
+            let cc = data.into_iter().map(|c| String::from(c as char)).collect();
+            cc
+        },
         Err(error) => {
             eprintln!("Error reading file: {} {}", source, error);
             return None;
