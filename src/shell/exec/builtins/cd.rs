@@ -29,7 +29,18 @@ pub fn cd(shell: &mut Shell, cmd: &Cmd) {
             Err(_) => write_("cd: cannot find HOME directory set\n"),
         }
     } else if cmd.args.len() == 1 {
-        let target_path = PathBuf::from(&cmd.args[0]);
+        let mut target_path = PathBuf::from(&cmd.args[0]);
+
+        if cmd.args[0].starts_with("~") {
+            let home = env::var("HOME");
+            match home {
+                Ok(path) => target_path = PathBuf::from(cmd.args[0].replace("~", &path)),
+                Err(_) => {
+                    write_("cd: cannot find HOME directory set\n");
+                    return;
+                }
+            }
+        }
 
         let final_path = if target_path.is_absolute() {
             target_path
