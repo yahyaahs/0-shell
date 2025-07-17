@@ -5,6 +5,7 @@ use std::{
     fs::{self, metadata, remove_dir_all, remove_file},
     io::*,
     os::unix::fs::{MetadataExt, PermissionsExt},
+    path::Path,
 };
 
 use users::{get_group_by_gid, get_user_by_uid};
@@ -30,6 +31,42 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
             eprintln!("rm: {:?} and {:?} may not be removed", ".", "..");
             return;
         }
+
+        // Check if it's a symlink first (including broken ones)
+        let is_symlink = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata.is_symlink(),
+            Err(_) => false,
+        };
+
+        // If it's a symlink, we can remove it regardless of whether the target exists
+        if is_symlink {
+            // For symlinks, we use symlink_metadata to get info about the link itself
+            let symlink_meta = match fs::symlink_metadata(&path) {
+                Ok(meta) => meta,
+                Err(err) => {
+                    eprintln!("{:?}", err.to_string());
+                    return;
+                }
+            };
+
+            if demand_confirmation(symlink_meta, &path) {
+                match remove_file(&path) {
+                    Ok(_) => continue,
+                    Err(error) => match error.kind() {
+                        ErrorKind::PermissionDenied => {
+                            eprintln!("{}: {}: {}", command.exec, path, "Permission denied");
+                            return;
+                        }
+                        _ => {
+                            eprintln!("{}: {}: {}", command.exec, path, error);
+                            return;
+                        }
+                    },
+                }
+            }
+            continue;
+        }
+
         let is_exist = match fs::exists(&path) {
             Ok(b) => b,
             Err(err) => {
@@ -79,11 +116,19 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                 }
             }
         } else {
+            let p = match Path::new(&path).canonicalize() {
+                Ok(p) => p,
+                Err(e) => {
+                    println!("aaaa {}", e.to_string());
+                    return;
+                }
+            };
+            println!("{:?}", p);
             eprintln!(
                 "{}: {}: {}",
                 command.exec,
                 path.clone(),
-                "No such file or directory"
+                "hhhh No such file or directory"
             );
         }
     }
@@ -117,7 +162,10 @@ pub fn demand_confirmation(data_of_source: fs::Metadata, path: &String) -> bool 
         ));
 
         let mut response: String = String::new();
-        let _ = io::stdin().read_line(&mut response);
+        let error = io::stdin().read_line(&mut response);
+        if let Err(_) = error {
+            return false;
+        }
 
         let response = response.trim();
         if response.starts_with("y") || response.starts_with("Y") {
