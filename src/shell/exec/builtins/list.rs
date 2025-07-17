@@ -391,7 +391,14 @@ fn format_entry_name(
                 Ok(name_str.to_string())
             }
         }
-        Types::Executable(n) => Ok(n.to_string_lossy().to_string()),
+        Types::Executable(n) => {
+            let name_str = n.to_string_lossy();
+            if flag_f {
+                Ok(format!("{}*", name_str))
+            } else {
+                Ok(name_str.to_string())
+            }
+        },
         Types::Symlink(_n) => {
             let file_name_os = entry.file_name();
             let file_name = file_name_os.to_string_lossy();
