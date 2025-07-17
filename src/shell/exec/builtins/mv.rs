@@ -27,7 +27,7 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
         match home {
             Ok(p) => target = target.replace("~", &p),
             Err(_) => {
-                write_("cd: cannot find HOME directory set\n");
+                write_("mv: cannot find HOME directory set\n");
                 return;
             }
         }
@@ -71,7 +71,7 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
             match home {
                 Ok(p) => source = source.replace("~", &p),
                 Err(_) => {
-                    write_("cd: cannot find HOME directory set\n");
+                    write_("mv: cannot find HOME directory set\n");
                     return;
                 }
             }

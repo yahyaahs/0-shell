@@ -15,7 +15,7 @@ pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
                 match home {
                     Ok(path) => file = file.replace("~", &path),
                     Err(_) => {
-                        write_("cd: cannot find HOME directory set\n");
+                        write_("cat: cannot find HOME directory set\n");
                         return;
                     }
                 }

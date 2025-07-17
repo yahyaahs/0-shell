@@ -22,7 +22,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
             match home {
                 Ok(p) => path = path.replace("~", &p),
                 Err(_) => {
-                    write_("cd: cannot find HOME directory set\n");
+                    write_("rm: cannot find HOME directory set\n");
                     return;
                 }
             }
@@ -32,15 +32,12 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
             return;
         }
 
-        // Check if it's a symlink first (including broken ones)
         let is_symlink = match fs::symlink_metadata(&path) {
             Ok(metadata) => metadata.is_symlink(),
             Err(_) => false,
         };
 
-        // If it's a symlink, we can remove it regardless of whether the target exists
         if is_symlink {
-            // For symlinks, we use symlink_metadata to get info about the link itself
             let symlink_meta = match fs::symlink_metadata(&path) {
                 Ok(meta) => meta,
                 Err(err) => {

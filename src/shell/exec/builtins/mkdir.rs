@@ -13,7 +13,7 @@ pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
             match home {
                 Ok(p) => folder_name = folder_name.replace("~", &p),
                 Err(_) => {
-                    write_("cd: cannot find HOME directory set\n");
+                    write_("mkdir: cannot find HOME directory set\n");
                     return;
                 }
             }

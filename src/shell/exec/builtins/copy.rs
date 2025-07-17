@@ -20,7 +20,7 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
         match home {
             Ok(p) => target = target.replace("~", &p),
             Err(_) => {
-                write_("cd: cannot find HOME directory set\n");
+                write_("cp: cannot find HOME directory set\n");
                 return;
             }
         }
@@ -32,7 +32,7 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
             match home {
                 Ok(p) => only_src = only_src.replace("~", &p),
                 Err(_) => {
-                    write_("cd: cannot find HOME directory set\n");
+                    write_("cp: cannot find HOME directory set\n");
                     return;
                 }
             }
@@ -56,7 +56,7 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                 match home {
                     Ok(p) => source = source.replace("~", &p),
                     Err(_) => {
-                        write_("cd: cannot find HOME directory set\n");
+                        write_("cp: cannot find HOME directory set\n");
                         return;
                     }
                 }
