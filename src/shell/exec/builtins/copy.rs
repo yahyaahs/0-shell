@@ -42,7 +42,7 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
         let data_of_target = match metadata(&target) {
             Ok(data) => data,
             Err(error) => {
-                eprintln!("{:?}", error);
+                eprintln!("{:?}", error.to_string());
                 return;
             }
         };
@@ -64,7 +64,7 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
             let data_of_source = match metadata(&source) {
                 Ok(data) => data,
                 Err(error) => {
-                    eprintln!("{:?}", error);
+                    eprintln!("{:?}", error.to_string());
                     return;
                 }
             };
@@ -122,7 +122,7 @@ pub fn one_source(source: &String, command: &String, target: &String) {
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
         Err(error) => {
-            eprintln!("{:?}", error);
+            eprintln!("{:?}", error.to_string());
             return;
         }
     };
@@ -204,8 +204,9 @@ pub fn create_file(
                 eprintln!("{}: {}: {}", command, path, "Not Found");
                 return None;
             }
+
             _ => {
-                eprintln!("{}", error);
+                eprintln!("{}", error.to_string());
                 return None;
             }
         },
@@ -217,7 +218,7 @@ pub fn copy_perms(source: &String, target: &String) {
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
         Err(error) => {
-            eprintln!("{:?}", error);
+            eprintln!("{:?}", error.to_string());
             return;
         }
     };
@@ -225,7 +226,7 @@ pub fn copy_perms(source: &String, target: &String) {
     let data_of_target = match metadata(&target) {
         Ok(data) => data,
         Err(error) => {
-            eprintln!("{:?}", error);
+            eprintln!("{}", error.to_string());
             return;
         }
     };

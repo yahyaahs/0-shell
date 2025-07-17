@@ -94,7 +94,7 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
             let meta_data_source = match metadata(&source) {
                 Ok(data) => data,
                 Err(err) => {
-                    eprintln!("metadata source mv error {:?}", err);
+                    eprintln!("metadata source mv error {:?}", err.to_string());
                     return;
                 }
             };
@@ -117,10 +117,30 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
 pub fn move_dir(s: &String, target: &String, comand: &String) -> Option<bool> {
     let target_meta_data = match metadata(target) {
         Ok(data) => data,
-        Err(error) => {
-            eprintln!("error metadata in move dir{:?}", error);
-            return None;
-        }
+        Err(error) => match error.kind() {
+            ErrorKind::PermissionDenied => {
+                eprintln!("{}: {}: {}", comand, target, "Permission denied");
+                return None;
+            }
+            ErrorKind::NotADirectory => {
+                eprintln!(
+                    "{}: {}: {}",
+                    comand,
+                    target.trim_end_matches("/"),
+                    "is not a directory"
+                );
+                return None;
+            }
+            ErrorKind::NotFound => {
+                eprintln!("{}: {}: {}", comand, target, "Not Found");
+                return None;
+            }
+
+            _ => {
+                eprintln!("{}", error.to_string());
+                return None;
+            }
+        },
     };
     if !target_meta_data.is_dir() {
         eprintln!("{}: rename {} to {}: Not a directory", comand, s, target);
@@ -154,7 +174,7 @@ pub fn move_dir(s: &String, target: &String, comand: &String) -> Option<bool> {
         let d_meta_data = match d.metadata() {
             Ok(data) => data,
             Err(error) => {
-                eprintln!("error metadata in move dir{:?}", error);
+                eprintln!("{:?}", error.to_string());
                 let _ = remove_dir(&format!("{}/{}", target, s1));
                 return None;
             }
@@ -180,7 +200,7 @@ pub fn move_dir(s: &String, target: &String, comand: &String) -> Option<bool> {
     match remove_dir_all(s) {
         Ok(_) => Some(true),
         Err(e) => {
-            eprintln!("is_exist mv error {:?}", e);
+            eprintln!("{:?}", e.to_string());
             let _ = remove_dir(&format!("{}/{}", target, s1));
             return None;
         }
@@ -191,7 +211,7 @@ pub fn move_file(source: &String, target: &String, comand: &String) -> Option<bo
     let is_exist = match exists(target) {
         Ok(check) => check,
         Err(err) => {
-            eprintln!("is_exist mv error {:?}", err);
+            eprintln!("{:?}", err.to_string());
             return None;
         }
     };
@@ -220,7 +240,7 @@ pub fn rename_file_or_move(source: &String, target: &String, comand: &String) ->
     let source_data = match metadata(source) {
         Ok(data) => data,
         Err(e) => {
-            eprintln!("{:?}", e);
+            eprintln!("{:?}", e.to_string());
             return None;
         }
     };
