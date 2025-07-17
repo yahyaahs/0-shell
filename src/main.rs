@@ -62,7 +62,10 @@ fn main() {
             input.len() == 1
         };
 
-        let mut to_scan = input.trim_end_matches(|c| c == '\n').to_string();
+        let mut to_scan = input
+            .trim_end_matches(|c| c == '\n')
+            .trim_start_matches(|c| c == ' ' || c == '\t')
+            .to_string();
         let state = scan_command(&mut to_scan, is_empty);
         input = to_scan;
 

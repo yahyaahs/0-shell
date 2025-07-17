@@ -1,7 +1,6 @@
 use super::*;
 
 use crate::shell::State;
-use chrono::Local;
 
 pub fn scan_command(input: &mut String, is_empty: bool) -> Option<State> {
     if !is_empty && input.ends_with("\\") && !input.ends_with("\\\\") {
@@ -205,14 +204,13 @@ fn valid_flags(exec: &str, args: &Vec<String>) -> bool {
 }
 
 pub fn display_prompt() -> String {
-    let time = Local::now().format("%H:%M:%S");
+    let host = std::env::var("HOSTNAME").unwrap_or_else(|_| "localhost".to_string());
 
     format!(
-        "{magenta}╭─[{white}{blue}{time}{reset}{magenta}]{reset}\n{magenta}╰─» {reset}",
-        magenta = "\x1b[36m",
-        white = "\x1b[1;37m",
-        blue = "\x1b[94m",
+        "{red}{host}{reset} {blue}»{reset} ",
+        blue = "\x1b[91m",
+        red = "\x1b[38;5;33m",
         reset = "\x1b[0m",
-        time = time
+        host = host
     )
 }
