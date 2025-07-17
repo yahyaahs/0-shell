@@ -1,6 +1,7 @@
 use super::*;
 
 use std::{
+    env,
     fs::{self, metadata},
     io::*,
     os::unix::fs::PermissionsExt,
@@ -12,12 +13,33 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
         return;
     }
     let sources = command.args[0..command.args.len() - 1].to_vec();
-    let target = &command.args[command.args.len() - 1];
+    let mut target = command.args[command.args.len() - 1].clone();
 
+    if target.starts_with("~") {
+        let home = env::var("HOME");
+        match home {
+            Ok(p) => target = target.replace("~", &p),
+            Err(_) => {
+                write_("cd: cannot find HOME directory set\n");
+                return;
+            }
+        }
+    }
     if sources.len() == 1 {
-        one_source(&sources[0], &command.exec, target);
+        let mut only_src = sources[0].clone();
+        if only_src.starts_with("~") {
+            let home = env::var("HOME");
+            match home {
+                Ok(p) => only_src = only_src.replace("~", &p),
+                Err(_) => {
+                    write_("cd: cannot find HOME directory set\n");
+                    return;
+                }
+            }
+        }
+        one_source(&only_src, &command.exec, &target);
     } else {
-        let data_of_target = match metadata(target) {
+        let data_of_target = match metadata(&target) {
             Ok(data) => data,
             Err(error) => {
                 eprintln!("{:?}", error);
@@ -28,8 +50,18 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
             eprintln!("{}: {} {}", command.exec, target, "is not a directory");
             return;
         }
-        for source in &sources {
-            let data_of_source = match metadata(source) {
+        for mut source in sources {
+            if source.starts_with("~") {
+                let home = env::var("HOME");
+                match home {
+                    Ok(p) => source = source.replace("~", &p),
+                    Err(_) => {
+                        write_("cd: cannot find HOME directory set\n");
+                        return;
+                    }
+                }
+            }
+            let data_of_source = match metadata(&source) {
                 Ok(data) => data,
                 Err(error) => {
                     eprintln!("{:?}", error);
@@ -43,23 +75,23 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                 );
                 continue;
             }
-            let content: String = match fs::read(source) {
+            let content: String = match fs::read(&source) {
                 Ok(data) => {
                     let cc = data.into_iter().map(|c| String::from(c as char)).collect();
                     cc
-                },
+                }
                 Err(error) => {
                     eprintln!("Error reading file: {}", error);
                     return;
                 }
             };
-            match create_file(target, &content, source, &command.exec) {
+            match create_file(&target, &content, &source, &command.exec) {
                 Some(path) => {
                     if path == "".to_string() {
                         return;
                     }
 
-                    copy_perms(source, &path);
+                    copy_perms(&source, &path);
                 }
                 None => return,
             }
@@ -90,7 +122,7 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         Ok(data) => {
             let cc = data.into_iter().map(|c| String::from(c as char)).collect();
             cc
-        },
+        }
         Err(error) => match error.kind() {
             ErrorKind::PermissionDenied => {
                 eprintln!("{}: {}: {}", command, source, "Permission denied");

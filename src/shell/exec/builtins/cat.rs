@@ -1,7 +1,7 @@
 use super::*;
 
 use std::{
-    fs,
+    env, fs,
     io::{self, ErrorKind},
 };
 
@@ -9,7 +9,18 @@ pub fn cat(_shell: &mut Shell, cmd: &Cmd) {
     if cmd.args.len() == 0 {
         infinit_read();
     } else {
-        for file in cmd.args.clone() {
+        for mut file in cmd.args.clone() {
+            if file.starts_with("~") {
+                let home = env::var("HOME");
+                match home {
+                    Ok(path) => file = file.replace("~", &path),
+                    Err(_) => {
+                        write_("cd: cannot find HOME directory set\n");
+                        return;
+                    }
+                }
+            }
+
             if file == "-".to_string() {
                 infinit_read();
             } else {

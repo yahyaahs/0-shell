@@ -8,13 +8,37 @@ use crate::shell::exec::{
     remove::demand_confirmation,
 };
 
-use std::fs::{exists, metadata, read, read_dir, remove_dir, remove_dir_all, remove_file};
+use std::{
+    env,
+    fs::{exists, metadata, read, read_dir, remove_dir, remove_dir_all, remove_file},
+};
 
 pub fn mv(_: &mut Shell, command: &Cmd) {
     let sources = &command.args[..command.args.len() - 1].to_vec();
-    let target = &command.args[command.args.len() - 1];
-    for source in sources {
-        let is_exist = match exists(source) {
+    let mut target = command.args[command.args.len() - 1].clone();
+    if target.starts_with("~") {
+        let home = env::var("HOME");
+        match home {
+            Ok(p) => target = target.replace("~", &p),
+            Err(_) => {
+                write_("cd: cannot find HOME directory set\n");
+                return;
+            }
+        }
+    }
+    for mut source in sources.clone() {
+        if source.starts_with("~") {
+            let home = env::var("HOME");
+            match home {
+                Ok(p) => source = source.replace("~", &p),
+                Err(_) => {
+                    write_("cd: cannot find HOME directory set\n");
+                    return;
+                }
+            }
+        }
+
+        let is_exist = match exists(&source) {
             Ok(check) => check,
             Err(err) => {
                 eprintln!("is_exist mv error {:?}", err);
@@ -28,7 +52,7 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
             );
             continue;
         } else {
-            let meta_data_source = match metadata(source) {
+            let meta_data_source = match metadata(&source) {
                 Ok(data) => data,
                 Err(err) => {
                     eprintln!("metadata source mv error {:?}", err);
@@ -37,12 +61,12 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
             };
 
             if meta_data_source.is_dir() {
-                match move_dir(source, target, &command.exec) {
+                match move_dir(&source, &target, &command.exec) {
                     Some(_) => {}
                     None => return,
                 }
             } else {
-                match move_file(source, target, &command.exec) {
+                match move_file(&source, &target, &command.exec) {
                     Some(_) => {}
                     None => return,
                 }

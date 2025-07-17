@@ -1,17 +1,27 @@
 use super::*;
 
-use std::{fs::create_dir, io::*};
+use std::{env, fs::create_dir, io::*};
 
 pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
-    for folder_name in &command.args {
-        match create_folder(folder_name, &command.exec) {
-            Some(_) => {},
-            None => return
+    for mut folder_name in command.args.clone() {
+        if folder_name.starts_with("~") {
+            let home = env::var("HOME");
+            match home {
+                Ok(p) => folder_name = folder_name.replace("~", &p),
+                Err(_) => {
+                    write_("cd: cannot find HOME directory set\n");
+                    return;
+                }
+            }
+        }
+        match create_folder(&folder_name, &command.exec) {
+            Some(_) => {}
+            None => return,
         }
     }
 }
 
-pub fn create_folder(folder_name: &String, comand: &String) -> Option<bool>{
+pub fn create_folder(folder_name: &String, comand: &String) -> Option<bool> {
     match create_dir(folder_name) {
         Ok(_) => Some(true),
         Err(error) => match error.kind() {
@@ -25,7 +35,7 @@ pub fn create_folder(folder_name: &String, comand: &String) -> Option<bool>{
             ErrorKind::AlreadyExists => {
                 eprintln!("{}: {}: {}", comand, folder_name, "File exists");
                 None
-            },
+            }
             ErrorKind::PermissionDenied => {
                 eprintln!("{}: {}: {}", comand, folder_name, "Permission denied");
                 None
@@ -34,6 +44,6 @@ pub fn create_folder(folder_name: &String, comand: &String) -> Option<bool>{
                 eprintln!("hanni {}: {}", comand, error);
                 None
             }
-        }
+        },
     }
 }

@@ -1,6 +1,7 @@
 use super::*;
 
 use std::{
+    env,
     fs::{self, metadata, remove_dir_all, remove_file},
     io::*,
     os::unix::fs::{MetadataExt, PermissionsExt},
@@ -11,15 +12,25 @@ use users::{get_group_by_gid, get_user_by_uid};
 pub fn rm(_shell: &mut Shell, command: &Cmd) {
     if command.args.len() == 0 {
         eprintln!("usage: rm [-r] file ...\nunlink [--] file");
-        return
+        return;
     }
-    
-    for path in &command.args {
+
+    for mut path in command.args.clone() {
+        if path.starts_with("~") {
+            let home = env::var("HOME");
+            match home {
+                Ok(p) => path = path.replace("~", &p),
+                Err(_) => {
+                    write_("cd: cannot find HOME directory set\n");
+                    return;
+                }
+            }
+        }
         if path.contains("./") || path.contains("../") {
             eprintln!("rm: {:?} and {:?} may not be removed", ".", "..");
-            return
+            return;
         }
-        let is_exist = match fs::exists(path) {
+        let is_exist = match fs::exists(&path) {
             Ok(b) => b,
             Err(err) => {
                 eprintln!("{:?}", err);
@@ -27,7 +38,7 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
             }
         };
         if is_exist {
-            let data_of_source = match metadata(path) {
+            let data_of_source = match metadata(&path) {
                 Ok(data) => data,
                 Err(err) => {
                     eprintln!("{:?}", err);
@@ -46,12 +57,15 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                     );
                     return;
                 } else {
-                    if demand_confirmation(data_of_source, path) {
-                        match remove_dir_all(path) {
+                    if demand_confirmation(data_of_source, &path) {
+                        match remove_dir_all(&path) {
                             Ok(_) => continue,
                             Err(error) => match error.kind() {
                                 ErrorKind::PermissionDenied => {
-                                    eprintln!("{}: {}: {}", command.exec, path, "Permission denied");
+                                    eprintln!(
+                                        "{}: {}: {}",
+                                        command.exec, path, "Permission denied"
+                                    );
                                     return;
                                 }
                                 _ => return,
@@ -60,14 +74,16 @@ pub fn rm(_shell: &mut Shell, command: &Cmd) {
                     }
                 }
             } else {
-                if demand_confirmation(data_of_source, path) {
+                if demand_confirmation(data_of_source, &path) {
                     let _ = remove_file(path);
                 }
             }
         } else {
             eprintln!(
                 "{}: {}: {}",
-                command.exec, path, "No such file or directory"
+                command.exec,
+                path.clone(),
+                "No such file or directory"
             );
         }
     }
@@ -114,7 +130,6 @@ pub fn demand_confirmation(data_of_source: fs::Metadata, path: &String) -> bool 
     }
 }
 
-
 pub fn list_args(meta: &std::fs::Metadata) -> String {
     let mode = meta.permissions().mode();
     let file_type = match mode & 0o170000 {
@@ -125,7 +140,7 @@ pub fn list_args(meta: &std::fs::Metadata) -> String {
         0o010000 => 'p',
         0o060000 => 'b',
         0o020000 => 'c',
-        _ => '?',       
+        _ => '?',
     };
     let mut perms = String::new();
     perms.push(file_type);
