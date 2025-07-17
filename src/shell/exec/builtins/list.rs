@@ -156,7 +156,7 @@ fn get_time_meta(meta: &std::fs::Metadata) -> String {
     if passed {
         formated.format("%b %e %H:%M").to_string()
     } else {
-        formated.format("%b %e  %Y").to_string() // double space before year
+        formated.format("%b %e  %Y").to_string() 
     }
 }
 
@@ -341,7 +341,7 @@ fn print_entry_long(
     };
     let date = get_time_meta(&meta);
     let entry_type = check_type(elems);
-    let name = match format_entry_name(elems, &entry_type, flag_f) {
+    let name = match format_entry_name(elems, &entry_type, flag_f, args.flags.contains(&"l".to_string())) {
         Ok(n) => n,
         Err(err_msg) => {
             output.push(err_msg);
@@ -370,6 +370,7 @@ fn format_entry_name(
     entry: &DirEntry,
     entry_type: &Types,
     flag_f: bool,
+    flag_l : bool,
 ) -> Result<String, String> {
     match entry_type {
         Types::Dir(n) => {
@@ -385,7 +386,21 @@ fn format_entry_name(
             let file_name_os = entry.file_name();
             let file_name = file_name_os.to_string_lossy();
             match read_link(entry.path()) {
-                Ok(link) => Ok(format!("{} -> {}", file_name, link.to_string_lossy())),
+                Ok(link) => {
+                    if flag_f {
+                        if flag_l {
+                            Ok(format!("{} -> {}", file_name, link.to_string_lossy()))
+                        } else {
+                            Ok(format!("{}@", file_name))
+                        }
+                    } else {
+                        if flag_l {
+                            Ok(format!("{} -> {}", file_name, link.to_string_lossy()))
+                        } else {
+                            Ok(file_name.to_string())
+                        }
+                    }
+                },
                 Err(err) => Err(format!(
                     "ls: cannot read symbolic link '{}': {}\n",
                     entry.path().to_string_lossy(),
@@ -592,7 +607,7 @@ fn print_directory(target: &str, args: &Cmd) {
             let mut name = String::new();
             let show = {
                 let entry_type = check_type(elems);
-                match format_entry_name(elems, &entry_type, flag_f) {
+                match format_entry_name(elems, &entry_type, flag_f, args.flags.contains(&"l".to_string())) {
                     Ok(n) => {
                         name = n;
                         show_all || !name.starts_with('.')
