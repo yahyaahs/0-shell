@@ -10,6 +10,7 @@ use std::{
 };
 use users::{get_group_by_gid, get_user_by_uid};
 use xattr::FileExt;
+use terminal_size::{Width, terminal_size};
 
 #[derive(Debug)]
 pub enum Types {
@@ -146,7 +147,7 @@ fn get_time_meta(meta: &std::fs::Metadata) -> String {
         Err(_) => return "?".to_string(),
     };
     let now = SystemTime::now();
-    let under_six = Duration::from_secs(60 * 60 * 24 * 30);
+    let under_six = Duration::from_secs(60 * 60 * 24 * 30 * 6); // 6 months
     let passed = match now.duration_since(time) {
         Ok(duration) => duration < under_six,
         Err(_) => true,
@@ -155,7 +156,7 @@ fn get_time_meta(meta: &std::fs::Metadata) -> String {
     if passed {
         formated.format("%b %e %H:%M").to_string()
     } else {
-        formated.format("%b %e  %Y").to_string()
+        formated.format("%b %e  %Y").to_string() // double space before year
     }
 }
 
@@ -178,26 +179,7 @@ pub fn get_group_and_user(args: &DirEntry) -> (String, String) {
     };
     (username, group)
 }
-pub fn get_time(args: &DirEntry) -> String {
-    let time = match args.metadata().and_then(|m| m.modified()) {
-        Ok(mtime) => mtime + Duration::from_secs(3600),
-        Err(_) => return "?".to_string(),
-    };
-    let now = SystemTime::now();
-    // println!("time {:#?} ", now);
-    let under_six = Duration::from_secs(60 * 60 * 24 * 30);
-    let passed = match now.duration_since(time) {
-        Ok(duration) => duration < under_six,
-        Err(_) => true,
-    };
-    let formated: DateTime<Local> = time.into();
 
-    if passed {
-        formated.format("%b %e %H:%M").to_string()
-    } else {
-        formated.format("%b %e  %Y").to_string()
-    }
-}
 fn handle_show_entries(
     args: &Cmd,
     nlink_w: usize,
@@ -209,7 +191,7 @@ fn handle_show_entries(
     let entries = [".", ".."];
     if args.flags.contains(&"l".to_string()) {
         for entry in &entries {
-            if let Ok(meta) = std::fs::metadata(entry) {
+            if let Ok(meta) = metadata(entry) {
                 if args.flags.contains(&"F".to_string()) {
                     output.push(format!(
                         "{} {:>width_n$} {:<width_o$} {:<width_g$} {:>width_s$} {} {}/\n",
@@ -263,48 +245,60 @@ fn get_target(args: &Cmd) -> Vec<String> {
     }
 }
 
-fn print_error(target: &str) {
+fn print_error(target: &str, err: &std::io::Error) {
     write_(&format!(
-        "ls : cannot access {}: No such file or dir\n",
-        target
+        "ls: cannot access '{}': {}\n",
+        target,
+        err
     ));
 }
 
 fn print_file(target: &str, meta: &std::fs::Metadata, args: &Cmd) {
     if args.flags.contains(&"l".to_string()) {
-        let (size, _is_device) = {
+        let size = {
             let file_type = meta.file_type();
             if file_type.is_char_device() || file_type.is_block_device() {
                 let rdev = meta.rdev();
-                (format!("{}, {}", major(rdev), minor(rdev)), true)
+                format!("{:>3}, {:>3}", major(rdev), minor(rdev))
             } else {
-                (format!("{}", meta.len()), false)
+                format!("{}", meta.len())
             }
         };
         let mut name = target.to_string();
         if meta.file_type().is_symlink() {
-            let target_path = read_link(target).unwrap_or_default();
-            name = format!("{} -> {}", target, target_path.to_string_lossy());
+            match read_link(target) {
+                Ok(target_path) => {
+                    name = format!("{} -> {}", target, target_path.to_string_lossy());
+                }
+                Err(err) => {
+                    write_(&format!(
+                        "ls: cannot read symbolic link '{}': {}\n",
+                        target,
+                        err
+                    ));
+                }
+            }
         }
-        let nlink_w = meta.nlink().to_string().len().max(1);
+        let nlink_w = meta.nlink().to_string().len().max(2);
         let (username, group) = get_group_and_user_meta(&meta);
-        let owner_w = username.len().max(1);
-        let group_w = group.len().max(1);
-        let size_w = size.len().max(1);
+        let owner_w = username.len().max(2);
+        let group_w = group.len().max(2);
+        let size_w = size.len().max(4);
+        let perms = list_args(&meta, Path::new(&target));
+        let date = get_time_meta(&meta);
         write_(&format!(
-            "{} {:>width_n$} {:<width_o$} {:<width_g$} {:^width_s$} {} {}
-",
-            list_args(&meta, Path::new(&target)),
+            "{:<10} {:>nlink_w$} {:<owner_w$} {:<group_w$} {:>size_w$} {} {}\n",
+            perms,
             meta.nlink(),
             username,
             group,
             size,
-            get_time_meta(&meta),
+            date,
             name,
-            width_n = nlink_w,
-            width_o = owner_w,
-            width_g = group_w,
-            width_s = size_w
+            nlink_w = nlink_w,
+            owner_w = owner_w,
+            group_w = group_w,
+            size_w = size_w
         ));
     } else {
         write_(&format!("{}\n", target));
@@ -318,14 +312,18 @@ fn print_entry_long(
     owner_w: usize,
     group_w: usize,
     size_w: usize,
-    perms_w: usize,
     output: &mut Vec<String>,
 ) {
     let show_all = args.flags.contains(&"a".to_string());
     let flag_f = args.flags.contains(&"F".to_string());
     let meta = match elems.metadata() {
         Ok(m) => m,
-        Err(_) => {
+        Err(err) => {
+            output.push(format!(
+                "ls: cannot access '{}': {}\n",
+                elems.path().to_string_lossy(),
+                err
+            ));
             return;
         }
     };
@@ -336,49 +334,23 @@ fn print_entry_long(
     let size_str = {
         if file_type.is_char_device() || file_type.is_block_device() {
             let rdev = meta.rdev();
-            format!("{}, {}", major(rdev), minor(rdev))
+            format!("{:>3}, {:>3}", major(rdev), minor(rdev))
         } else {
             format!("{}", meta.len())
         }
     };
-    let date = get_time(elems);
-    let name = match check_type(elems) {
-        Types::Dir(n) => {
-            let name_str = n.to_string_lossy();
-            if flag_f {
-                format!("{}/", name_str)
-            } else {
-                name_str.to_string()
-            }
+    let date = get_time_meta(&meta);
+    let entry_type = check_type(elems);
+    let name = match format_entry_name(elems, &entry_type, flag_f) {
+        Ok(n) => n,
+        Err(err_msg) => {
+            output.push(err_msg);
+            return;
         }
-        Types::Executable(n) => n.to_string_lossy().to_string(),
-        Types::Symlink(_n) => {
-            let file_name_os = elems.file_name();
-            let file_name = file_name_os.to_string_lossy();
-            let target = match read_link(elems.path()) {
-                Ok(link) => link,
-                Err(err) => {
-                    output.push(format!(
-                        "{} for symlink {}\n",
-                        err,
-                        elems.path().to_string_lossy()
-                    ));
-                    return;
-                }
-            };
-            format!("{} -> {}", file_name, target.to_string_lossy())
-        }
-        Types::File(n) | Types::CharDevice(n) | Types::BlockDevice(n) => {
-            n.to_string_lossy().to_string()
-        }
-        Types::Socket(name) => format!("{}=", name.to_string_lossy()),
-        Types::Pipe(name) => format!("{}|", name.to_string_lossy()),
-        _ => String::new(),
     };
     if show_all || !name.starts_with('.') {
         output.push(format!(
-            "{:<width_p$} {:>width_n$} {:<width_o$} {:<width_g$} {:^width_s$} {} {}
-",
+            "{:<10} {:>nlink_w$} {:<owner_w$} {:<group_w$} {:>size_w$} {} {}\n",
             perms,
             nlinks,
             username,
@@ -386,83 +358,76 @@ fn print_entry_long(
             size_str,
             date,
             name,
-            width_p = perms_w,
-            width_n = nlink_w,
-            width_o = owner_w,
-            width_g = group_w,
-            width_s = size_w
+            nlink_w = nlink_w,
+            owner_w = owner_w,
+            group_w = group_w,
+            size_w = size_w
         ));
     }
 }
 
-fn print_entry_short(elems: &DirEntry, args: &Cmd, output: &mut String) {
-    let show_all = args.flags.contains(&"a".to_string());
-    let flag_f = args.flags.contains(&"F".to_string());
-    let long_list = args.flags.contains(&"l".to_string());
-    match check_type(elems) {
-        Types::Dir(name) => {
-            let name_str = name.to_string_lossy();
-            let display = if flag_f {
-                format!("{}/", name_str)
-            } else {
-                name_str.to_string()
-            };
-            if show_all || !name_str.starts_with('.') {
-                output.push_str(&format!("{}  ", display));
-            }
-        }
-        Types::Executable(name) => {
-            let name_str = name.to_string_lossy();
+fn format_entry_name(
+    entry: &DirEntry,
+    entry_type: &Types,
+    flag_f: bool,
+) -> Result<String, String> {
+    match entry_type {
+        Types::Dir(n) => {
+            let name_str = n.to_string_lossy();
             if flag_f {
-                if show_all || !name_str.starts_with('.') {
-                    output.push_str(&format!("{}*  ", name_str));
-                }
+                Ok(format!("{}/", name_str))
             } else {
-                if show_all || !name_str.starts_with('.') {
-                    output.push_str(&format!("{}  ", name_str));
-                }
+                Ok(name_str.to_string())
             }
         }
-        Types::Symlink(name) => {
-            let file_name = name.to_string_lossy();
-            let display = if flag_f {
-                format!("{}@  ", file_name)
-            } else {
-                format!("{}  ", file_name)
-            };
-            if show_all || !file_name.starts_with('.') {
-                output.push_str(&display);
+        Types::Executable(n) => Ok(n.to_string_lossy().to_string()),
+        Types::Symlink(_n) => {
+            let file_name_os = entry.file_name();
+            let file_name = file_name_os.to_string_lossy();
+            match read_link(entry.path()) {
+                Ok(link) => Ok(format!("{} -> {}", file_name, link.to_string_lossy())),
+                Err(err) => Err(format!(
+                    "ls: cannot read symbolic link '{}': {}\n",
+                    entry.path().to_string_lossy(),
+                    err
+                )),
             }
         }
-        Types::File(name) | Types::CharDevice(name) | Types::BlockDevice(name) => {
-            let name_str = name.to_string_lossy();
-            if show_all || !name_str.starts_with('.') {
-                output.push_str(&format!("{}  ", name_str));
+        Types::File(n) | Types::CharDevice(n) | Types::BlockDevice(n) => {
+            Ok(n.to_string_lossy().to_string())
+        }
+        Types::Socket(name) => Ok(format!("{}=", name.to_string_lossy())),
+        Types::Pipe(name) => Ok(format!("{}|", name.to_string_lossy())),
+        _ => Ok(String::new()),
+    }
+}
+
+fn get_terminal_width() -> usize {
+    if let Some((Width(w), _)) = terminal_size() {
+        w as usize
+    } else {
+        80
+    }
+}
+
+fn print_in_columns(entries: &[String], term_width: usize) {
+    if entries.is_empty() {
+        return;
+    }
+    let max_len = entries.iter().map(|s| s.len()).max().unwrap();
+    let col_width = max_len + 2;
+    let cols = (term_width / col_width).max(1);
+    let rows = (entries.len() + cols - 1) / cols;
+
+    for row in 0..rows {
+        for col in 0..cols {
+            let idx = col * rows + row;
+            if idx < entries.len() {
+                let entry = &entries[idx];
+                print!("{:width$}", entry, width = col_width);
             }
         }
-        Types::Socket(name) => {
-            let file_name = name.to_string_lossy();
-            let display = if flag_f || long_list {
-                format!("{}=  ", file_name)
-            } else {
-                format!("{}  ", file_name)
-            };
-            if show_all || !file_name.starts_with('.') {
-                output.push_str(&display);
-            }
-        }
-        Types::Pipe(name) => {
-            let file_name = name.to_string_lossy();
-            let display = if flag_f || long_list {
-                format!("{}|  ", file_name)
-            } else {
-                format!("{}  ", file_name)
-            };
-            if show_all || !file_name.starts_with('.') {
-                output.push_str(&display);
-            }
-        }
-        _ => (),
+        println!();
     }
 }
 
@@ -479,16 +444,14 @@ fn print_directory(target: &str, args: &Cmd) {
                         entr.push(entry);
                     }
                     Err(err) => {
-                        println!("{}", err);
-                        print_error(target);
+                        print_error(target, &err);
                     }
                 }
             }
             entr
         }
         Err(err) => {
-            println!("{}", err);
-            print_error(target);
+            print_error(target, &err);
             vec![]
         }
     };
@@ -509,12 +472,12 @@ fn print_directory(target: &str, args: &Cmd) {
 
         if show_all {
             let current = Path::new(target).join(".");
-            if let Ok(meta) = fs::metadata(&current) {
+            if let Ok(meta) = metadata(&current) {
                 total_blocks += meta.blocks();
             }
 
             let parent = Path::new(target).join("..");
-            if let Ok(meta) = fs::metadata(&parent) {
+            if let Ok(meta) = metadata(&parent) {
                 total_blocks += meta.blocks();
             }
         }
@@ -529,16 +492,26 @@ fn print_directory(target: &str, args: &Cmd) {
         for entry in &entries {
             let meta = match entry.metadata() {
                 Ok(m) => m,
-                Err(_) => continue,
+                Err(err) => {
+                    print_error(&entry.path().to_string_lossy(), &err);
+                    continue;
+                }
             };
             let perms = list_args(&meta, &entry.path());
             let nlinks = meta.nlink().to_string().len();
             let (username, group) = get_group_and_user(entry);
-            let size = meta.len().to_string().len();
+            let file_type = meta.file_type();
+            let size_len = if file_type.is_char_device() || file_type.is_block_device() {
+                let maj = major(meta.rdev());
+                let min = minor(meta.rdev());
+                format!("{:>3}, {:>3}", maj, min).len()
+            } else {
+                meta.len().to_string().len()
+            };
             nlink_w = nlink_w.max(nlinks);
             owner_w = owner_w.max(username.len());
             group_w = group_w.max(group.len());
-            size_w = size_w.max(size);
+            size_w = size_w.max(size_len);
             perms_w = perms_w.max(perms.len());
         }
         if show_all {
@@ -547,11 +520,18 @@ fn print_directory(target: &str, args: &Cmd) {
                     let perms = list_args(&meta, Path::new(special));
                     let nlinks = meta.nlink().to_string().len();
                     let (username, group) = get_group_and_user_meta(&meta);
-                    let size = meta.len().to_string().len();
+                    let file_type = meta.file_type();
+                    let size_len = if file_type.is_char_device() || file_type.is_block_device() {
+                        let maj = major(meta.rdev());
+                        let min = minor(meta.rdev());
+                        format!("{:>3}, {:>3}", maj, min).len()
+                    } else {
+                        meta.len().to_string().len()
+                    };
                     nlink_w = nlink_w.max(nlinks);
                     owner_w = owner_w.max(username.len());
                     group_w = group_w.max(group.len());
-                    size_w = size_w.max(size);
+                    size_w = size_w.max(size_len);
                     perms_w = perms_w.max(perms.len());
                 }
             }
@@ -572,7 +552,6 @@ fn print_directory(target: &str, args: &Cmd) {
                 owner_w,
                 group_w,
                 size_w,
-                perms_w,
                 &mut formated_entries,
             )
         }
@@ -600,26 +579,40 @@ fn print_directory(target: &str, args: &Cmd) {
                 other => other,
             }
         });
-
         write_(&formated_entries.join(""))
     } else {
+        let show_all = args.flags.contains(&"a".to_string());
+        let flag_f = args.flags.contains(&"F".to_string());
+        let mut display_entries = Vec::new();
         if show_all {
-            handle_show_entries(args, 1, 1, 1, 1, &mut Vec::new());
+            display_entries.push(".".to_string());
+            display_entries.push("..".to_string());
         }
-        let mut output = String::new();
-        for elems in entries {
-            print_entry_short(&elems, args, &mut output);
+        for elems in &entries {
+            let mut name = String::new();
+            let show = {
+                let entry_type = check_type(elems);
+                match format_entry_name(elems, &entry_type, flag_f) {
+                    Ok(n) => {
+                        name = n;
+                        show_all || !name.starts_with('.')
+                    }
+                    Err(_) => false,
+                }
+            };
+            if show && !name.is_empty() {
+                display_entries.push(name);
+            }
         }
-        if !output.is_empty() {
-            write_(&format!("{}\n", output.trim_end()));
-        }
+        let term_width = get_terminal_width();
+        print_in_columns(&display_entries, term_width);
     }
 }
 
 pub fn ls(_shell: &mut Shell, args: &Cmd) {
     let targets = get_target(args);
     for (i, target) in targets.iter().enumerate() {
-        let meta = std::fs::metadata(&target);
+        let meta = metadata(&target);
         match meta {
             Ok(meta) => {
                 if meta.is_dir() {
@@ -632,7 +625,7 @@ pub fn ls(_shell: &mut Shell, args: &Cmd) {
                 }
             }
             Err(_) => {
-                print_error(&target);
+                print_error(&target, &std::io::Error::new(std::io::ErrorKind::NotFound, "No such file or directory"));
             }
         }
         if i != targets.len() - 1 {
