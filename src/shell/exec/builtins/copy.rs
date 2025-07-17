@@ -4,7 +4,7 @@ use std::{
     env,
     fs::{self, metadata},
     io::*,
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::PermissionsExt, path::Path,
 };
 
 pub fn cp(_shell: &mut Shell, command: &Cmd) {
@@ -99,12 +99,25 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
 }
 
 pub fn one_source(source: &String, command: &String, target: &String) {
-    if source == target {
-        eprintln!(
-            "{}: {} and {} {}",
-            command, source, target, "are identical (not copied)."
-        );
-        return;
+  let source_path = Path::new(source);
+    let holder: Vec<String> = source.split("/").map(|f| f.to_string()).collect();
+    let s = &holder[holder.len() - 1];
+    let temp = format!("{}/{}",target.trim_end_matches("/"),s);
+    let final_path = Path::new(&temp);
+    let same_paths = match (source_path.canonicalize(), final_path.canonicalize()) {
+        (Ok(canonical_source), Ok(canonical_target)) => {
+            Some(canonical_source == canonical_target)
+        }
+        _ => None // One or both paths don't exist or can't be canonicalized
+    };
+    match same_paths {
+        Some(checker) => {
+            if checker {
+                eprintln!("{}: {} and {:?} are identical (not copied).",command,source,final_path);
+                return;
+            }
+        }
+        _ => {}
     }
     let data_of_source = match metadata(&source) {
         Ok(data) => data,
