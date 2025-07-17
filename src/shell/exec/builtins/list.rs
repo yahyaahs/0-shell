@@ -439,10 +439,10 @@ fn print_in_columns(entries: &[String], term_width: usize) {
             let idx = col * rows + row;
             if idx < entries.len() {
                 let entry = &entries[idx];
-                print!("{:width$}", entry, width = col_width);
+                write_(&format!("{:width$}", entry, width = col_width));
             }
         }
-        println!();
+        write_("\n");
     }
 }
 
