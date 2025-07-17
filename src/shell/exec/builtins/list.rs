@@ -11,6 +11,7 @@ use std::{
 use users::{get_group_by_gid, get_user_by_uid};
 use xattr::FileExt;
 use terminal_size::{Width, terminal_size};
+use std::env;
 
 #[derive(Debug)]
 pub enum Types {
@@ -237,11 +238,20 @@ fn minor(dev: u64) -> u64 {
     (dev & 0xff) | ((dev >> 12) & 0xfff00)
 }
 
+fn expand_home(path: &str) -> String {
+    if path.starts_with("~") {
+        if let Ok(home) = env::var("HOME") {
+            return path.replace("~", &home);
+        }
+    }
+    path.to_string()
+}
+
 fn get_target(args: &Cmd) -> Vec<String> {
     if args.args.is_empty() {
         vec![".".to_string()]
     } else {
-        args.args.clone()
+        args.args.iter().map(|arg| expand_home(arg)).collect()
     }
 }
 
