@@ -75,10 +75,9 @@ pub fn cp(_shell: &mut Shell, command: &Cmd) {
                 );
                 continue;
             }
-            let content: String = match fs::read(&source) {
+            let content: Vec<u8> = match fs::read(&source) {
                 Ok(data) => {
-                    let cc = data.into_iter().map(|c| String::from(c as char)).collect();
-                    cc
+                    data
                 }
                 Err(error) => {
                     eprintln!("Error reading file: {}", error);
@@ -118,10 +117,9 @@ pub fn one_source(source: &String, command: &String, target: &String) {
         eprintln!("{}: {} {}", command, source, "is a directory (not copied).");
         return;
     }
-    let content: String = match fs::read(source) {
+    let content: Vec<u8> = match fs::read(source) {
         Ok(data) => {
-            let cc = data.into_iter().map(|c| String::from(c as char)).collect();
-            cc
+            data
         }
         Err(error) => match error.kind() {
             ErrorKind::PermissionDenied => {
@@ -149,7 +147,7 @@ pub fn one_source(source: &String, command: &String, target: &String) {
 
 pub fn create_file(
     path: &String,
-    content: &String,
+    content: &Vec<u8>,
     source: &String,
     command: &String,
 ) -> Option<String> {
@@ -157,7 +155,7 @@ pub fn create_file(
     let s1 = &s[s.len() - 1];
     let mut new_path = path;
     let holder = &format!("{}/{}", path, s1);
-    match fs::write(path, content.trim()) {
+    match fs::write(path, content) {
         Ok(_) => Some(path.clone()),
         Err(error) => match error.kind() {
             ErrorKind::IsADirectory => {
@@ -190,7 +188,7 @@ pub fn create_file(
                 return None;
             }
             ErrorKind::NotFound => {
-                eprintln!("{}: {}: {}", command, path, "Not Fount");
+                eprintln!("{}: {}: {}", command, path, "Not Found");
                 return None;
             }
             _ => {

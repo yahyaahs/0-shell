@@ -3,6 +3,10 @@ use super::*;
 use std::{env, fs::create_dir, io::*};
 
 pub fn mkdir(_shell: &mut Shell, command: &Cmd) {
+    if command.args.len() < 1 {
+        eprintln!("usage: mkdir directory_name ...");
+        return
+    }
     for mut folder_name in command.args.clone() {
         if folder_name.starts_with("~") {
             let home = env::var("HOME");

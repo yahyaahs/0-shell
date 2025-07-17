@@ -11,9 +11,14 @@ use crate::shell::exec::{
 use std::{
     env,
     fs::{exists, metadata, read, read_dir, remove_dir, remove_dir_all, remove_file},
+    io::*
 };
 
 pub fn mv(_: &mut Shell, command: &Cmd) {
+    if command.args.len() < 2 {
+        eprintln!("usage: mv source target\n\tmv source ... directory");
+        return
+    }
     let sources = &command.args[..command.args.len() - 1].to_vec();
     let mut target = command.args[command.args.len() - 1].clone();
     if target.starts_with("~") {
@@ -24,6 +29,39 @@ pub fn mv(_: &mut Shell, command: &Cmd) {
                 write_("cd: cannot find HOME directory set\n");
                 return;
             }
+        }
+    }
+    
+    if sources.len() > 1 {
+        let data_of_target = match metadata(&target) {
+            Ok(data) => data,
+            Err(error) => match error.kind() {
+                ErrorKind::PermissionDenied => {
+                    eprintln!("{}: {}: {}", command.exec, target, "Permission denied");
+                    return;
+                }
+                ErrorKind::NotADirectory => {
+                    eprintln!(
+                        "{}: {}: {}",
+                        command.exec,
+                        target.trim_end_matches("/"),
+                        "is not a directory"
+                    );
+                    return;
+                }
+                ErrorKind::NotFound => {
+                    eprintln!("{}: {}: {}", command.exec, target, "Not Found");
+                    return;
+                }
+                _ => {
+                    eprintln!("{}", error);
+                    return;
+                }
+            },
+        };
+        if !data_of_target.is_dir() {
+            eprintln!("{}: {} {}", command.exec, target, "is not a directory");
+            return;
         }
     }
     for mut source in sources.clone() {
@@ -188,11 +226,8 @@ pub fn rename_file_or_move(source: &String, target: &String, comand: &String) ->
     if !demand_confirmation(source_data, source) {
         return None;
     }
-    let content: String = match read(source) {
-        Ok(data) => {
-            let cc = data.into_iter().map(|c| String::from(c as char)).collect();
-            cc
-        }
+    let content: Vec<u8> = match read(source) {
+        Ok(data) => data,
         Err(error) => {
             eprintln!("Error reading file: {} {}", source, error);
             return None;
@@ -207,13 +242,13 @@ pub fn rename_file_or_move(source: &String, target: &String, comand: &String) ->
 
 pub fn create_and_remove(
     target: &String,
-    content: &String,
+    content: &Vec<u8>,
     source: &String,
     comand: &String,
 ) -> Option<bool> {
     let holder: Vec<String> = source.split("/").map(|f| f.to_string()).collect();
     let s = &holder[holder.len() - 1];
-    match create_file(target, &content, s, comand) {
+    match create_file(target, content, s, comand) {
         Some(path) => {
             copy_perms(source, &path);
             let _ = match remove_file(source) {
