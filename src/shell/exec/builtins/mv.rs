@@ -5,7 +5,7 @@ use crate::shell::exec::{builtins::{
     mkdir::create_folder,
 }, remove::{demand_confirmation}};
 
-use std::fs::{exists, metadata, read_dir, read_to_string,read,  remove_dir, remove_dir_all, remove_file};
+use std::fs::{exists, metadata, read_dir,read,  remove_dir, remove_dir_all, remove_file};
 
 pub fn mv(_: &mut Shell, command: &Cmd) {
     let sources = &command.args[..command.args.len() - 1].to_vec();
