@@ -1,5 +1,6 @@
 use std::{fs::{exists, metadata, read_dir, read_to_string, remove_dir_all, remove_file}};
 
+
 use crate::shell::exec::builtins::{copy::{create_file, copy_perms}, mkdir::create_folder};
 
 use super::*;
@@ -10,24 +11,22 @@ pub fn mv(_:&mut Shell, command: &Cmd) {
         let is_exist = match exists(source) {
             Ok(check) => check,
             Err(err) => {
-                println!("is_exist mv error {:?}",err); 
+                write_(&format!("is_exist mv error {:?}",err)); 
                 return
             }
         };
         if !is_exist {
-            println!("{}: rename {} to {}: No such file or directory", command.exec, source, target);
+            write_(&format!("{}: rename {} to {}: No such file or directory", command.exec, source, target));
             continue
         }else {
             let meta_data_source = match metadata(source) {
                 Ok(data) => data,
-                Err(err) => {println!("metadata source mv error {:?}",err); return}
+                Err(err) => {write_(&format!("metadata source mv error {:?}",err)); return}
             };
             
             if meta_data_source.is_dir() {
-                println!("moving dir");
                 move_dir(source, target, &command.exec);
             }else {
-                println!("moving file");
                 move_file(source, target, &command.exec)
             }
         }
@@ -39,39 +38,23 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
     let target_meta_data = match metadata(target) {
         Ok(data) => data,
         Err(error) => {
-            println!("error metadata in move dir{:?}", error);
+            write_(&format!("error metadata in move dir{:?}", error));
             return
         },
     };
     if !target_meta_data.is_dir() {
-        println!("{}: rename {} to {}: Not a directory",comand, s, target);
+        write_(&format!("{}: rename {} to {}: Not a directory",comand, s, target));
         return
     }
-    // let is_exist = match exists(target) {
-    //     Ok(data) => data,
-    //     Err(e) => {
-    //         println!("error read dir in move dir {:?}", e);
-    //         return
-    //     },
-    // };
-    // let mut target = t.to_string();
-    // let mut source = s.to_string();
-    // if t.starts_with(".") {
-    //     let mut holder : Vec<String> = t.split("/").map(|f| f.to_string()).collect();
-    //     target = holder[1..].join("/");
-    //     holder = t.split("/").map(|f| f.to_string()).collect();
-    //     source =  holder[1..].join("/");
-    // }
-    // if !is_exist {
+
         let holder : Vec<String> = s.split("/").map(|f| f.to_string()).collect();
         let s1 = &holder[holder.len() -1];
         println!("creation folder {}",format!("{}/{}",target, s1));
         create_folder(&format!("{}/{}",target, s1), comand);
-    // }
     let paths = match read_dir(s) {
         Ok(dir) => dir,
         Err(error) => {
-            println!("error read dir in move dir {:?}", error);
+            write_(&format!("error read dir in move dir {:?}", error));
             return
         },
     };
@@ -80,7 +63,7 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
         let d = match path {
             Ok(d) => d,
             Err(error) => {
-                println!("error Dir entry in move dir{:?}", error);
+                write_(&format!("error Dir entry in move dir{:?}", error));
                 return
             },
         };
@@ -88,21 +71,19 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
         let d_meta_data = match d.metadata() {
             Ok(data) => data,
             Err(error) => {
-                println!("error metadata in move dir{:?}", error);
+                write_(&format!("error metadata in move dir{:?}", error));
                 return
             },
         };
         if d_meta_data.is_dir() {
-            println!("rah flwest dir");
             move_dir(&d_path, &target, comand)
         }else{
-            println!("rah flwest file");
             move_file(&d_path, &format!("{}/{}",target, s1), comand)
         }
     }
     match remove_dir_all(s) {
         Ok(_) => {},
-        Err(e) =>  {println!("is_exist mv error {:?}",e); return}
+        Err(e) =>  {write_(&format!("is_exist mv error {:?}",e)); return}
     }
 
 }
@@ -110,12 +91,11 @@ pub fn move_dir(s: &String, target: &String, comand: &String) {
 pub fn move_file(source: &String, target: &String, comand: &String) {
     let is_exist = match exists(target) {
         Ok(check) => check,
-        Err(err) => {println!("is_exist mv error {:?}",err); return}
+        Err(err) => {write_(&format!("is_exist mv error {:?}",err)); return}
     };
-    println!("target {}",is_exist);
     if !is_exist {
         if target.ends_with("/") {
-            println!("{}: rename {} to {}: No such file or directory",comand, source, target)
+            write_(&format!("{}: rename {} to {}: No such file or directory",comand, source, target))
         }else{
             rename_file_or_move(source, target, comand);
         }
@@ -150,7 +130,7 @@ pub fn create_and_remove(target: &String, content: &String, source: &String, com
                 let _ = match remove_file(source) {
                     Ok(_) => {},
                     Err(err) => {
-                        println!("error in removing after rename a file {:?}", err);
+                        write_(&format!("error in removing after rename a file {:?}", err));
                         return
                     }
                 };
@@ -158,26 +138,3 @@ pub fn create_and_remove(target: &String, content: &String, source: &String, com
         }
     }
 }
-
-// pub fn create_folder(folder_name: &String, comand: &String) {
-//     create_dir(folder_name).unwrap_or_else(|error| {
-//         // err = error;
-//         match error.kind() {
-//             ErrorKind::NotFound => {
-//                 let not_found: Vec<&str> = folder_name.split("/").collect();
-//                 println!(
-//                     "{}: {}: {}",
-//                     comand, not_found[0], "No such file or directory"
-//                 );
-//             }
-//             ErrorKind::AlreadyExists => {
-//                 let holder : Vec<String> = folder_name.split("/").map(|f| f.to_string()).collect();
-//                 let already_exist = holder[1..].join("/").to_string();
-                
-//             }
-//             _ => println!("{}: {}", comand, error),
-//         }
-
-//         // err.clear();
-//     })
-// }
