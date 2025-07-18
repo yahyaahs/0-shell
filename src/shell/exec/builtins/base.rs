@@ -62,6 +62,7 @@ fn get_help_texts() -> HashMap<&'static str, &'static str> {
     let mut map = HashMap::new();
 
     map.insert("exit", "exit: Exit the shell..\n\tUsage: exit [status]");
+    map.insert("exit", "clear: To clear terminal..\n\tUsage: clear");
     map.insert(
         "echo",
         "echo [args...]: Print arguments to the standard output.\n\tUsage: echo \"helloword\"",

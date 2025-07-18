@@ -43,22 +43,24 @@ pub fn scan_command(input: &mut String, is_empty: bool) -> Option<State> {
 }
 
 pub fn parse_command(input: &str) -> Result<Cmd, String> {
-    let exec = match input.split_whitespace().nth(0) {
-        Some(exe) => exe.to_string(),
-        None => return Err("".to_owned()),
-    };
-
-    let input = input.trim_start_matches(&exec).trim();
+    if input.is_empty() {
+        return Err(String::from(""));
+    }
 
     let all_tokens = tokenize(&input);
+    let mut exec = String::new();
     let mut args: Vec<String> = Vec::new();
     let mut flags: Vec<String> = Vec::new();
 
-    for arg in all_tokens {
+    for (i, arg) in all_tokens.iter().enumerate() {
+        if i == 0 {
+            exec = arg.clone();
+            continue;
+        }
         if arg.starts_with('-') {
             if *arg == "-".to_string() || arg.starts_with("--") {
                 if valid_flags(&exec, &vec![arg.clone()]) {
-                    args.push(arg);
+                    args.push(arg.clone());
                     continue;
                 } else {
                     return Err(format!("{}: invalid option --\n", exec));

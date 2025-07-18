@@ -63,8 +63,8 @@ fn main() {
         };
 
         let mut to_scan = input
-            .trim_end_matches(|c| c == '\n')
-            .trim_start_matches(|c| c == ' ' || c == '\t')
+            .trim_start_matches(|c| c == '\n' || c == '\t' || c == ' ')
+            .trim_end_matches(|c| c == '\n' || c == '\t' || c == ' ')
             .to_string();
         let state = scan_command(&mut to_scan, is_empty);
         input = to_scan;
@@ -72,9 +72,7 @@ fn main() {
         match state {
             Some(new_state) => shell.state = new_state,
             None => match parse_command(&input) {
-                Ok(cmd) => {
-                    execution(&mut shell, cmd);
-                }
+                Ok(cmd) => execution(&mut shell, cmd),
                 Err(err) => write_(&format!("{}", err)),
             },
         };
