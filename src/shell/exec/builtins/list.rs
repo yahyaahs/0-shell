@@ -75,18 +75,32 @@ fn has_acl(path: &std::path::Path) -> std::io::Result<bool> {
     Ok(false)
 }
 
+fn type_char_from_meta_and_path(meta: &std::fs::Metadata) -> char {
+    let ft = meta.file_type();
+    if ft.is_symlink() {
+        'l'
+    } else if ft.is_char_device() {
+        'c'
+    } else if ft.is_block_device() {
+        'b'
+    } else if ft.is_socket() {
+        's'
+    } else if ft.is_fifo() {
+        'p'
+    } else if meta.permissions().mode() & 0o111 != 0 && ft.is_file() {
+        '-'
+    } else if ft.is_file() {
+        '-'
+    } else if ft.is_dir() {
+        'd'
+    } else {
+        '?'
+    }
+}
+
 fn list_args(meta: &std::fs::Metadata, path: &std::path::Path) -> String {
     let mode = meta.permissions().mode();
-    let file_type = match mode & 0o170000 {
-        0o040000 => 'd', // directory
-        0o100000 => '-', // regular file
-        0o120000 => 'l', // symlink
-        0o140000 => 's', //socket
-        0o010000 => 'p', //pipe
-        0o060000 => 'b', //disc
-        0o020000 => 'c', //keyb , tty, ms
-        _ => '?',        // other
-    };
+    let file_type = type_char_from_meta_and_path(meta);
     let mut perms = String::new();
     perms.push(file_type);
     // Special
@@ -594,9 +608,9 @@ fn print_directory(target: &str, args: &Cmd) {
                     0
                 } else if entry.starts_with("total: ") {
                     1
-                } else if entry.trim_end().ends_with(" .")  {
+                } else if entry.trim_end().ends_with(" .") ||  entry.trim_end().ends_with(" ./"){
                     2
-                }else if  entry.trim_end().ends_with(" .."){
+                }else if  entry.trim_end().ends_with(" ..") || entry.trim_end().ends_with(" ../"){
                     3
                 } else {
                     4
