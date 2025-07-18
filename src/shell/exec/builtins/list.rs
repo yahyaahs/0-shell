@@ -87,8 +87,6 @@ fn type_char_from_meta_and_path(meta: &std::fs::Metadata) -> char {
         's'
     } else if ft.is_fifo() {
         'p'
-    } else if meta.permissions().mode() & 0o111 != 0 && ft.is_file() {
-        '-'
     } else if ft.is_file() {
         '-'
     } else if ft.is_dir() {
